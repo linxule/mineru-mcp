@@ -1,6 +1,3 @@
-# Smithery.ai configuration for mineru-mcp
-# https://smithery.ai/docs/config
-
 startCommand:
   type: stdio
   configSchema:
@@ -16,13 +13,13 @@ startCommand:
       mineruDefaultModel:
         type: string
         description: "Default model: pipeline (fast) or vlm (90% accuracy)"
-        enum: ["pipeline", "vlm"]
+        enum:
+          - pipeline
+          - vlm
         default: "pipeline"
     required:
       - mineruApiKey
-  commandFunction:
-    # Run the built MCP server with environment variables
-    |-
+  commandFunction: |
     (config) => ({
       command: 'node',
       args: ['dist/index.js'],
@@ -32,12 +29,3 @@ startCommand:
         MINERU_DEFAULT_MODEL: config.mineruDefaultModel || 'pipeline'
       }
     })
-
-build:
-  dockerfile: |
-    FROM node:20-slim
-    WORKDIR /app
-    COPY package*.json ./
-    RUN npm ci --only=production
-    COPY dist ./dist
-    CMD ["node", "dist/index.js"]
