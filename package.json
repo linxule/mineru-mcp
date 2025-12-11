@@ -1,6 +1,6 @@
 {
   "name": "mineru-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for MinerU document parsing API - optimized for Claude Code with 73% token reduction",
   "type": "module",
   "main": "dist/index.js",
