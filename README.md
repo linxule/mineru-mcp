@@ -1,5 +1,7 @@
 # mineru-mcp
 
+[![smithery badge](https://smithery.ai/badge/@linxule/mineru-mcp)](https://smithery.ai/server/@linxule/mineru-mcp)
+
 MCP server for [MinerU](https://mineru.net) document parsing API - optimized for Claude Code.
 
 ## Features
