@@ -597,7 +597,18 @@ export default function createServer({ config }: { config: Config }) {
   return server.server;
 }
 
-// STDIO mode for backward compatibility (npx, local dev)
+// Sandbox server for Smithery scanning (no real credentials needed)
+export function createSandboxServer() {
+  return createServer({
+    config: {
+      mineruApiKey: "sandbox-key",
+      mineruBaseUrl: "https://mineru.net/api/v4",
+      mineruDefaultModel: "pipeline",
+    },
+  });
+}
+
+// STDIO mode (npx, local dev, Claude Code)
 async function main() {
   const config: Config = {
     mineruApiKey: process.env.MINERU_API_KEY || "",
@@ -611,7 +622,14 @@ async function main() {
   console.error("MinerU MCP server running (stdio mode)");
 }
 
-main().catch((error) => {
-  console.error("Fatal error:", error);
-  process.exit(1);
-});
+// Only run stdio when executed directly (not when imported by Smithery CLI)
+const isDirectRun = process.argv[1] && (
+  process.argv[1].endsWith('index.js') ||
+  process.argv[1].endsWith('index.ts')
+);
+if (isDirectRun) {
+  main().catch((error) => {
+    console.error("Fatal error:", error);
+    process.exit(1);
+  });
+}

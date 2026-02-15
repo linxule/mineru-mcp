@@ -1,6 +1,36 @@
-runtime: "container"
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
 startCommand:
-  type: "http"
-build:
-  dockerfile: "Dockerfile"
-  dockerBuildPath: "."
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - mineruApiKey
+    properties:
+      mineruApiKey:
+        type: string
+        description: MinerU API key from mineru.net
+      mineruBaseUrl:
+        type: string
+        default: "https://mineru.net/api/v4"
+        description: API base URL (optional)
+      mineruDefaultModel:
+        type: string
+        enum:
+          - pipeline
+          - vlm
+        default: pipeline
+        description: "Default model: pipeline (fast) or vlm (90% accuracy)"
+  commandFunction:
+    |-
+    (config) => ({
+      command: 'node',
+      args: ['dist/index.js'],
+      env: {
+        MINERU_API_KEY: config.mineruApiKey,
+        ...(config.mineruBaseUrl && { MINERU_BASE_URL: config.mineruBaseUrl }),
+        ...(config.mineruDefaultModel && { MINERU_DEFAULT_MODEL: config.mineruDefaultModel })
+      }
+    })
+  exampleConfig:
+    mineruApiKey: your_api_key_here
