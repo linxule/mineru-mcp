@@ -26,33 +26,30 @@ MCP server for [MinerU](https://mineru.net) document parsing API — extract tex
 
 ## Installation
 
-### Claude Code
+Requires [Node.js](https://nodejs.org/) 18+ and a [MinerU API key](https://mineru.net).
+
+### CLI Install (one-liner)
 
 ```bash
+# Claude Code
 claude mcp add mineru-mcp -e MINERU_API_KEY=your-api-key -- npx -y mineru-mcp
+
+# Codex CLI (OpenAI)
+codex mcp add mineru --env MINERU_API_KEY=your-api-key -- npx -y mineru-mcp
+
+# Gemini CLI (Google)
+gemini mcp add -e MINERU_API_KEY=your-api-key mineru npx -y mineru-mcp
 ```
 
 ### Claude Desktop
 
-Add to `claude_desktop_config.json`:
+Add to your `claude_desktop_config.json`:
 
-```json
-{
-  "mcpServers": {
-    "mineru": {
-      "command": "npx",
-      "args": ["-y", "mineru-mcp"],
-      "env": {
-        "MINERU_API_KEY": "your-api-key"
-      }
-    }
-  }
-}
-```
-
-### Cursor / Windsurf
-
-Add to MCP settings:
+| OS | Config path |
+|----|-------------|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+| Linux | `~/.config/Claude/claude_desktop_config.json` |
 
 ```json
 {
@@ -70,7 +67,7 @@ Add to MCP settings:
 
 ### VS Code
 
-Add to `.vscode/mcp.json`:
+Add to `.vscode/mcp.json` (workspace) or open Command Palette > `MCP: Open User Configuration` (global):
 
 ```json
 {
@@ -85,6 +82,140 @@ Add to `.vscode/mcp.json`:
   }
 }
 ```
+
+> **Note**: VS Code uses `"servers"` as the top-level key, not `"mcpServers"`. Other VS Code forks (Trae, Void, PearAI, etc.) typically use this same format.
+
+### Cursor
+
+Add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "mineru": {
+      "command": "npx",
+      "args": ["-y", "mineru-mcp"],
+      "env": {
+        "MINERU_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json` (Windows: `%USERPROFILE%\.codeium\windsurf\mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "mineru": {
+      "command": "npx",
+      "args": ["-y", "mineru-mcp"],
+      "env": {
+        "MINERU_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Cline
+
+Open MCP Servers icon in Cline panel > Configure > Advanced MCP Settings, then add:
+
+```json
+{
+  "mcpServers": {
+    "mineru": {
+      "command": "npx",
+      "args": ["-y", "mineru-mcp"],
+      "env": {
+        "MINERU_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Cherry Studio
+
+In Settings > MCP Servers > Add Server, set Type to `STDIO`, Command to `npx`, Args to `-y mineru-mcp`, and add environment variable `MINERU_API_KEY`. Or paste in JSON/Code mode:
+
+```json
+{
+  "mineru": {
+    "name": "MinerU",
+    "command": "npx",
+    "args": ["-y", "mineru-mcp"],
+    "env": {
+      "MINERU_API_KEY": "your-api-key"
+    },
+    "isActive": true
+  }
+}
+```
+
+### Witsy
+
+In Settings > MCP Servers, add a new server with Type: `stdio`, Command: `npx`, Args: `-y mineru-mcp`, and set environment variable `MINERU_API_KEY` to your API key.
+
+### Codex CLI (TOML config)
+
+Alternatively, edit `~/.codex/config.toml` directly:
+
+```toml
+[mcp_servers.mineru]
+command = "npx"
+args = ["-y", "mineru-mcp"]
+
+[mcp_servers.mineru.env]
+MINERU_API_KEY = "your-api-key"
+```
+
+### Gemini CLI (JSON config)
+
+Alternatively, edit `~/.gemini/settings.json` directly:
+
+```json
+{
+  "mcpServers": {
+    "mineru": {
+      "command": "npx",
+      "args": ["-y", "mineru-mcp"],
+      "env": {
+        "MINERU_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Windows
+
+On Windows, `npx` requires a shell wrapper. Replace `"command": "npx"` with:
+
+```json
+{
+  "command": "cmd",
+  "args": ["/c", "npx", "-y", "mineru-mcp"],
+  "env": {
+    "MINERU_API_KEY": "your-api-key"
+  }
+}
+```
+
+For CLI tools on Windows:
+
+```bash
+claude mcp add mineru-mcp -e MINERU_API_KEY=your-api-key -- cmd /c npx -y mineru-mcp
+codex mcp add mineru --env MINERU_API_KEY=your-api-key -- cmd /c npx -y mineru-mcp
+```
+
+### ChatGPT
+
+ChatGPT only supports remote MCP servers over HTTPS — local stdio servers like this one are not directly supported. You would need to deploy behind a public URL with HTTP transport.
 
 ## Configuration
 
