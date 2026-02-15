@@ -4,7 +4,7 @@ MCP server for [MinerU](https://mineru.net) document parsing API - optimized for
 
 ## Features
 
-- **4 optimized tools** with concise descriptions (~73% token reduction vs alternatives)
+- **6 optimized tools** with concise descriptions (~73% token reduction vs alternatives)
 - **VLM model support** (90%+ accuracy) and pipeline mode (faster)
 - **Page range selection** - parse specific pages only
 - **Batch processing** - up to 200 documents at once
@@ -101,6 +101,44 @@ mineru_batch_status({
   offset: 0,           // optional: skip first N results
   format: "concise"    // optional: "concise" or "detailed"
 })
+```
+
+### `mineru_upload_batch`
+
+Upload local files from a directory for batch parsing. Handles presigned URL upload flow to Alibaba Cloud OSS.
+
+```typescript
+mineru_upload_batch({
+  directory: "/path/to/pdfs",  // scan directory for supported files
+  // OR
+  files: ["/path/to/doc1.pdf", "/path/to/doc2.pdf"],  // explicit file list
+  model: "vlm",        // optional
+  formula: true,       // optional
+  table: true,         // optional
+  language: "en",      // optional
+  formats: ["html"]    // optional
+})
+```
+
+Returns `batch_id` for tracking. Each file's original name is preserved via `data_id` (spaces become underscores).
+
+### `mineru_download_results`
+
+Download batch results, extract zips, and save markdown files named after originals.
+
+```typescript
+mineru_download_results({
+  batch_id: "batch-123",       // from mineru_upload_batch or mineru_batch
+  output_dir: "/path/to/output",
+  overwrite: false             // optional: overwrite existing files
+})
+```
+
+Output filenames are derived from `data_id` (e.g., `my_paper_title.md`). Spaces in original filenames become underscores.
+
+**Typical workflow:**
+```
+mineru_upload_batch → mineru_batch_status (poll) → mineru_download_results
 ```
 
 ## Supported Formats

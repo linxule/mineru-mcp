@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * HTTP Server for MinerU MCP
- * Run with: npm run start:http or node dist/server.js
+ * Run with: bun run start:http or node dist/server.js
  */
 
 import express from "express";

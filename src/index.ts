@@ -3,6 +3,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import axios, { AxiosError } from "axios";
+import { readFileSync, createReadStream, createWriteStream, readdirSync, statSync, mkdirSync, writeFileSync, existsSync, unlinkSync, rmSync, realpathSync } from "node:fs";
+import { join, basename, extname } from "node:path";
+import { execFileSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { randomBytes } from "node:crypto";
+import { pipeline } from "node:stream/promises";
 
 // Configuration schema for Smithery
 export const configSchema = z.object({
@@ -54,6 +60,11 @@ interface TaskStatus {
 
 interface BatchResponse {
   batch_id: string;
+}
+
+interface BatchFileUploadResponse {
+  batch_id: string;
+  file_urls: string[];
 }
 
 interface BatchStatus {
@@ -164,7 +175,7 @@ export default function createServer({ config }: { config: Config }) {
   // Create MCP server
   const server = new McpServer({
     name: "mineru",
-    version: "1.0.1",
+    version: "1.0.2",
   });
 
   // Tool 1: mineru_parse
@@ -310,6 +321,272 @@ export default function createServer({ config }: { config: Config }) {
         params.format === "detailed"
           ? JSON.stringify(batch, null, 2)
           : formatConciseBatch(batch, params.limit ?? 10, params.offset ?? 0);
+
+      return {
+        content: [{ type: "text", text }],
+      };
+    }
+  );
+
+  // Tool 5: mineru_upload_batch
+  server.tool(
+    "mineru_upload_batch",
+    "Upload local files from a directory for batch parsing. Handles file upload to MinerU servers. Returns batch_id to track with mineru_batch_status. Use mineru_download_results to get named markdown files.",
+    {
+      directory: z.string().optional().describe("Directory path containing PDF/DOC/PPT files"),
+      files: z.array(z.string()).optional().describe("Array of absolute file paths (alternative to directory)"),
+      model: z
+        .enum(["pipeline", "vlm"])
+        .optional()
+        .describe("pipeline=fast, vlm=90% accuracy"),
+      formula: z.boolean().optional().describe("Formula recognition"),
+      table: z.boolean().optional().describe("Table recognition"),
+      language: z.string().optional().describe("Language code: ch, en, etc"),
+      formats: z
+        .array(z.enum(["docx", "html", "latex"]))
+        .optional()
+        .describe("Extra export formats"),
+    },
+    async (params) => {
+      const supportedExts = new Set([".pdf", ".doc", ".docx", ".ppt", ".pptx", ".png", ".jpg", ".jpeg"]);
+
+      // Collect files
+      let filePaths: string[] = [];
+      if (params.files?.length) {
+        filePaths = params.files;
+      } else if (params.directory) {
+        const dir = params.directory;
+        if (!existsSync(dir)) {
+          throw new Error(`Directory not found: ${dir}`);
+        }
+        const entries = readdirSync(dir);
+        filePaths = entries
+          .filter((f) => supportedExts.has(extname(f).toLowerCase()))
+          .map((f) => join(dir, f));
+      } else {
+        throw new Error("Provide either 'directory' or 'files' parameter.");
+      }
+
+      if (filePaths.length === 0) {
+        throw new Error("No supported files found.");
+      }
+      if (filePaths.length > 200) {
+        throw new Error(`Found ${filePaths.length} files. Max 200 per batch. Filter or split.`);
+      }
+
+      // Validate files exist and build request with collision-safe data_ids
+      const fileEntries: Array<{ name: string; data_id: string }> = [];
+      const usedDataIds = new Set<string>();
+      for (const fp of filePaths) {
+        if (!existsSync(fp)) {
+          throw new Error(`File not found: ${fp}`);
+        }
+        const stats = statSync(fp);
+        if (stats.size > 200 * 1024 * 1024) {
+          throw new Error(`File too large (${(stats.size / 1024 / 1024).toFixed(0)}MB): ${basename(fp)}. Max 200MB.`);
+        }
+        const name = basename(fp);
+        let stem = name.replace(extname(name), "").replace(/[^a-zA-Z0-9_\-\.]/g, "_").slice(0, 128);
+        // Handle data_id collisions
+        let candidate = stem;
+        let counter = 1;
+        while (usedDataIds.has(candidate)) {
+          candidate = `${stem}_${counter++}`;
+        }
+        usedDataIds.add(candidate);
+        fileEntries.push({ name, data_id: candidate });
+      }
+
+      // Request upload URLs
+      const requestData: Record<string, unknown> = {
+        files: fileEntries,
+        model_version: params.model || defaultModel,
+      };
+      if (params.formula !== undefined) requestData.enable_formula = params.formula;
+      if (params.table !== undefined) requestData.enable_table = params.table;
+      if (params.language) requestData.language = params.language;
+      if (params.formats?.length) requestData.extra_formats = params.formats;
+
+      const result = await mineruRequest<BatchFileUploadResponse>("/file-urls/batch", "POST", requestData);
+
+      if (result.file_urls.length !== filePaths.length) {
+        throw new Error(`Expected ${filePaths.length} upload URLs, got ${result.file_urls.length}`);
+      }
+
+      // Upload each file to presigned OSS URLs using native fetch
+      // Presigned URLs are signed WITHOUT Content-Type — axios force-adds it, so use fetch
+      const uploadResults: string[] = [];
+      for (let i = 0; i < filePaths.length; i++) {
+        const fp = filePaths[i];
+        const uploadUrl = result.file_urls[i];
+        const fileName = basename(fp);
+        try {
+          const fileData = readFileSync(fp);
+          const resp = await fetch(uploadUrl, {
+            method: "PUT",
+            body: fileData,
+            signal: AbortSignal.timeout(300_000),
+          });
+          if (!resp.ok) {
+            const body = await resp.text();
+            uploadResults.push(`FAIL: ${fileName} - HTTP ${resp.status}: ${body.slice(0, 200)}`);
+          } else {
+            uploadResults.push(`OK: ${fileName}`);
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          uploadResults.push(`FAIL: ${fileName} - ${msg}`);
+        }
+      }
+
+      const successCount = uploadResults.filter((r) => r.startsWith("OK")).length;
+      const failCount = uploadResults.filter((r) => r.startsWith("FAIL")).length;
+
+      let text = `Batch ${result.batch_id}: ${successCount} uploaded, ${failCount} failed.\n`;
+      text += `Parsing starts automatically. Use mineru_batch_status to track.\n`;
+      text += `Use mineru_download_results with this batch_id to get named .md files.\n`;
+      if (failCount > 0) {
+        text += `\nFailed uploads:\n${uploadResults.filter((r) => r.startsWith("FAIL")).join("\n")}`;
+      }
+
+      return {
+        content: [{ type: "text", text }],
+      };
+    }
+  );
+
+  // Tool 6: mineru_download_results
+  server.tool(
+    "mineru_download_results",
+    "Download batch results and extract markdown files with original filenames. Downloads zips, extracts .md content, and saves as {original_name}.md in output directory.",
+    {
+      batch_id: z.string().describe("Batch ID from mineru_upload_batch or mineru_batch"),
+      output_dir: z.string().describe("Directory to save markdown files"),
+      overwrite: z.boolean().optional().default(false).describe("Overwrite existing files"),
+    },
+    async (params) => {
+      // Check batch status
+      const batch = await mineruRequest<BatchStatus>(
+        `/extract-results/batch/${params.batch_id}`
+      );
+
+      const results = batch.extract_result;
+      const doneResults = results.filter((r) => r.state === "done" && r.full_zip_url);
+      const pendingResults = results.filter((r) => ["pending", "running", "converting"].includes(r.state));
+      const failedResults = results.filter((r) => r.state === "failed");
+
+      if (doneResults.length === 0 && pendingResults.length > 0) {
+        return {
+          content: [{
+            type: "text",
+            text: `Batch ${params.batch_id}: ${pendingResults.length} still processing, 0 done. Try again later.`,
+          }],
+        };
+      }
+
+      // Create output directory
+      mkdirSync(params.output_dir, { recursive: true });
+
+      const tmpBase = join(tmpdir(), `mineru-dl-${Date.now()}-${randomBytes(4).toString("hex")}`);
+      mkdirSync(tmpBase, { recursive: true });
+
+      const downloaded: string[] = [];
+      const errors: string[] = [];
+
+      // Depth-limited, symlink-safe .md file finder
+      const findMd = (dir: string, baseDir: string, depth = 0, maxDepth = 5): string | null => {
+        if (depth > maxDepth) return null;
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isSymbolicLink()) continue; // skip symlinks (zip slip protection)
+          const fullPath = join(dir, entry.name);
+          if (entry.isFile() && entry.name.endsWith(".md")) {
+            // Verify resolved path stays within extraction dir
+            const realPath = realpathSync(fullPath);
+            if (!realPath.startsWith(realpathSync(baseDir))) continue;
+            return fullPath;
+          }
+          if (entry.isDirectory()) {
+            const found = findMd(fullPath, baseDir, depth + 1, maxDepth);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      for (const r of doneResults) {
+        // Prefer data_id (set by us from original filename) over file_name (API-returned, can be stale)
+        const rawName = r.data_id || r.file_name || "unknown";
+        const safeName = basename(rawName).replace(/[^a-zA-Z0-9_\-\.\s]/g, "_");
+        const stem = safeName.replace(extname(safeName), "") || "unnamed";
+        const mdOutputPath = join(params.output_dir, `${stem}.md`);
+
+        if (!params.overwrite && existsSync(mdOutputPath)) {
+          downloaded.push(`SKIP: ${stem}.md (exists)`);
+          continue;
+        }
+
+        try {
+          // Download zip via streaming to avoid memory pressure
+          const zipPath = join(tmpBase, `${stem}.zip`);
+          const response = await axios.get(r.full_zip_url!, {
+            responseType: "stream",
+            timeout: 120_000,
+          });
+          await pipeline(response.data, createWriteStream(zipPath));
+
+          // Extract zip using execFileSync (no shell injection)
+          const extractDir = join(tmpBase, stem);
+          mkdirSync(extractDir, { recursive: true });
+          try {
+            execFileSync("unzip", ["-o", "-q", zipPath, "-d", extractDir], {
+              timeout: 60_000,
+            });
+          } catch (unzipErr) {
+            const msg = unzipErr instanceof Error ? unzipErr.message : String(unzipErr);
+            errors.push(`UNZIP_FAIL: ${safeName} - ${msg}`);
+            continue;
+          }
+
+          const mdFile = findMd(extractDir, extractDir);
+          if (mdFile) {
+            const mdContent = readFileSync(mdFile, "utf-8");
+            writeFileSync(mdOutputPath, mdContent, "utf-8");
+            downloaded.push(`OK: ${stem}.md`);
+          } else {
+            errors.push(`NO_MD: ${safeName} - no .md file found in zip`);
+          }
+
+          // Cleanup zip
+          unlinkSync(zipPath);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`FAIL: ${safeName} - ${msg}`);
+        }
+      }
+
+      // Cleanup temp directory
+      try {
+        rmSync(tmpBase, { recursive: true, force: true });
+      } catch { /* ignore cleanup errors */ }
+
+      let text = `Downloaded to: ${params.output_dir}\n`;
+      text += `Done: ${downloaded.filter((d) => d.startsWith("OK")).length}`;
+      text += ` | Skipped: ${downloaded.filter((d) => d.startsWith("SKIP")).length}`;
+      text += ` | Failed: ${errors.length}`;
+      if (pendingResults.length > 0) {
+        text += ` | Still processing: ${pendingResults.length}`;
+      }
+      if (failedResults.length > 0) {
+        text += ` | Parse failed: ${failedResults.length}`;
+      }
+      text += `\n\nFiles:\n${downloaded.join("\n")}`;
+      if (errors.length > 0) {
+        text += `\n\nErrors:\n${errors.join("\n")}`;
+      }
+      if (pendingResults.length > 0) {
+        text += `\n\nRe-run this tool to download remaining files once processing completes.`;
+      }
 
       return {
         content: [{ type: "text", text }],

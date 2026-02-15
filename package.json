@@ -18,7 +18,7 @@
     "start:http": "node dist/server.js",
     "dev": "tsx src/index.ts",
     "dev:http": "tsx src/server.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "bun run build"
   },
   "keywords": [
     "mcp",
