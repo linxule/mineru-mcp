@@ -1,15 +1,28 @@
 # mineru-mcp
 
-MCP server for [MinerU](https://mineru.net) document parsing API - optimized for Claude Code.
+MCP server for [MinerU](https://mineru.net) document parsing API — extract text, tables, and formulas from PDFs, DOCs, and images.
 
 ## Features
 
-- **6 optimized tools** with concise descriptions (~73% token reduction vs alternatives)
-- **VLM model support** (90%+ accuracy) and pipeline mode (faster)
-- **Page range selection** - parse specific pages only
-- **Batch processing** - up to 200 documents at once
-- **Pagination** - efficient handling of large batch results
+- **VLM model** — 90%+ accuracy for complex documents
+- **Pipeline model** — Fast processing for simple documents
+- **Local file upload** — Upload files from disk for batch parsing
+- **Batch processing** — Parse up to 200 documents at once
+- **Download & rename** — Extract markdown with original filenames
+- **Page ranges** — Extract specific pages only
 - **109 language OCR** support
+- **Optimized for Claude Code** — 73% token reduction vs alternatives
+
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| `mineru_parse` | Parse a document URL |
+| `mineru_status` | Check task progress, get download URL |
+| `mineru_batch` | Parse multiple URLs (max 200) |
+| `mineru_batch_status` | Get batch results with pagination |
+| `mineru_upload_batch` | Upload local files for batch parsing |
+| `mineru_download_results` | Download results as named markdown files |
 
 ## Installation
 
@@ -47,11 +60,9 @@ Add to your Claude Desktop config:
 
 Get your API key at [mineru.net](https://mineru.net)
 
-## Tools
+## Usage
 
-### `mineru_parse`
-
-Parse a single document URL.
+### Parse a single URL
 
 ```typescript
 mineru_parse({
@@ -66,9 +77,7 @@ mineru_parse({
 })
 ```
 
-### `mineru_status`
-
-Check task progress and get download URL.
+### Check task progress
 
 ```typescript
 mineru_status({
@@ -79,9 +88,7 @@ mineru_status({
 
 **Concise output**: `done | abc-123 | https://cdn-mineru.../result.zip`
 
-### `mineru_batch`
-
-Parse multiple documents in one batch (max 200).
+### Batch parse URLs
 
 ```typescript
 mineru_batch({
@@ -90,9 +97,7 @@ mineru_batch({
 })
 ```
 
-### `mineru_batch_status`
-
-Get batch results with pagination.
+### Check batch progress
 
 ```typescript
 mineru_batch_status({
@@ -103,9 +108,7 @@ mineru_batch_status({
 })
 ```
 
-### `mineru_upload_batch`
-
-Upload local files from a directory for batch parsing. Handles presigned URL upload flow to Alibaba Cloud OSS.
+### Upload local files
 
 ```typescript
 mineru_upload_batch({
@@ -122,9 +125,7 @@ mineru_upload_batch({
 
 Returns `batch_id` for tracking. Each file's original name is preserved via `data_id` (spaces become underscores).
 
-### `mineru_download_results`
-
-Download batch results, extract zips, and save markdown files named after originals.
+### Download results as markdown
 
 ```typescript
 mineru_download_results({
@@ -136,7 +137,8 @@ mineru_download_results({
 
 Output filenames are derived from `data_id` (e.g., `my_paper_title.md`). Spaces in original filenames become underscores.
 
-**Typical workflow:**
+### Typical local file workflow
+
 ```
 mineru_upload_batch → mineru_batch_status (poll) → mineru_download_results
 ```
@@ -150,7 +152,7 @@ mineru_upload_batch → mineru_batch_status (poll) → mineru_download_results
 
 - Single file: 200MB max, 600 pages max
 - Daily quota: 2000 pages at high priority
-- Batch: max 200 URLs per request
+- Batch: max 200 files per request
 
 ## License
 
@@ -158,6 +160,6 @@ MIT
 
 ## Links
 
-- [MinerU](https://mineru.net) - Document parsing service
-- [MinerU GitHub](https://github.com/opendatalab/MinerU) - Open source version
-- [MCP Specification](https://modelcontextprotocol.io) - Model Context Protocol
+- [MinerU](https://mineru.net) — Document parsing service
+- [MinerU GitHub](https://github.com/opendatalab/MinerU) — Open source version
+- [MCP Specification](https://modelcontextprotocol.io) — Model Context Protocol
