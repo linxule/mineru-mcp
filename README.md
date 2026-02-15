@@ -29,16 +29,52 @@ MCP server for [MinerU](https://mineru.net) document parsing API — extract tex
 ### Claude Code
 
 ```bash
-claude mcp add mineru-mcp -e MINERU_API_KEY=your-api-key -- npx mineru-mcp
+claude mcp add mineru-mcp -e MINERU_API_KEY=your-api-key -- npx -y mineru-mcp
 ```
 
 ### Claude Desktop
 
-Add to your Claude Desktop config:
+Add to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
+    "mineru": {
+      "command": "npx",
+      "args": ["-y", "mineru-mcp"],
+      "env": {
+        "MINERU_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### Cursor / Windsurf
+
+Add to MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "mineru": {
+      "command": "npx",
+      "args": ["-y", "mineru-mcp"],
+      "env": {
+        "MINERU_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
+
+### VS Code
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
     "mineru": {
       "command": "npx",
       "args": ["-y", "mineru-mcp"],
