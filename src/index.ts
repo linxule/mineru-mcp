@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import axios, { AxiosError } from "axios";
-import { readFileSync, createReadStream, createWriteStream, readdirSync, statSync, mkdirSync, writeFileSync, existsSync, unlinkSync, rmSync, realpathSync } from "node:fs";
+import { readFileSync, createWriteStream, readdirSync, statSync, mkdirSync, existsSync, unlinkSync, rmSync, realpathSync, copyFileSync } from "node:fs";
 import { join, basename, extname } from "node:path";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -458,7 +458,7 @@ export default function createServer({ config }: { config: Config }) {
   // Tool 6: mineru_download_results
   server.tool(
     "mineru_download_results",
-    "Download batch results and extract markdown files with original filenames. Downloads zips, extracts .md content, and saves as {original_name}.md in output directory.",
+    "Download batch results and extract named paper folders. Each folder contains {name}.md, {name}_content.json (structured TOC), and images/.",
     {
       batch_id: z.string().describe("Batch ID from mineru_upload_batch or mineru_batch"),
       output_dir: z.string().describe("Directory to save markdown files"),
@@ -493,21 +493,40 @@ export default function createServer({ config }: { config: Config }) {
       const downloaded: string[] = [];
       const errors: string[] = [];
 
-      // Depth-limited, symlink-safe .md file finder
-      const findMd = (dir: string, baseDir: string, depth = 0, maxDepth = 5): string | null => {
+      // Depth-limited, symlink-safe file finder
+      const findFile = (dir: string, targetName: string, baseDir: string, depth = 0, maxDepth = 5): string | null => {
         if (depth > maxDepth) return null;
         const entries = readdirSync(dir, { withFileTypes: true });
         for (const entry of entries) {
           if (entry.isSymbolicLink()) continue; // skip symlinks (zip slip protection)
           const fullPath = join(dir, entry.name);
-          if (entry.isFile() && entry.name.endsWith(".md")) {
-            // Verify resolved path stays within extraction dir
+          if (entry.isFile() && entry.name === targetName) {
             const realPath = realpathSync(fullPath);
             if (!realPath.startsWith(realpathSync(baseDir))) continue;
             return fullPath;
           }
           if (entry.isDirectory()) {
-            const found = findMd(fullPath, baseDir, depth + 1, maxDepth);
+            const found = findFile(fullPath, targetName, baseDir, depth + 1, maxDepth);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      // Depth-limited, symlink-safe directory finder
+      const findDir = (dir: string, targetName: string, baseDir: string, depth = 0, maxDepth = 5): string | null => {
+        if (depth > maxDepth) return null;
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isSymbolicLink()) continue;
+          const fullPath = join(dir, entry.name);
+          if (entry.isDirectory() && entry.name === targetName) {
+            const realPath = realpathSync(fullPath);
+            if (!realPath.startsWith(realpathSync(baseDir))) continue;
+            return fullPath;
+          }
+          if (entry.isDirectory()) {
+            const found = findDir(fullPath, targetName, baseDir, depth + 1, maxDepth);
             if (found) return found;
           }
         }
@@ -517,13 +536,17 @@ export default function createServer({ config }: { config: Config }) {
       for (const r of doneResults) {
         // Prefer data_id (set by us from original filename) over file_name (API-returned, can be stale)
         const rawName = r.data_id || r.file_name || "unknown";
-        const safeName = basename(rawName).replace(/[^a-zA-Z0-9_\-\.\s]/g, "_");
-        const stem = safeName.replace(extname(safeName), "") || "unnamed";
-        const mdOutputPath = join(params.output_dir, `${stem}.md`);
+        const safeName = basename(rawName).replace(/[^a-zA-Z0-9_\-\.]/g, "_");
+        const stem = (safeName.replace(extname(safeName), "") || "unnamed").slice(0, 128);
+        const paperDir = join(params.output_dir, stem);
 
-        if (!params.overwrite && existsSync(mdOutputPath)) {
-          downloaded.push(`SKIP: ${stem}.md (exists)`);
-          continue;
+        if (existsSync(paperDir)) {
+          if (!params.overwrite) {
+            downloaded.push(`SKIP: ${stem}/ (exists)`);
+            continue;
+          }
+          // Clean existing folder to avoid stale files from previous download
+          rmSync(paperDir, { recursive: true, force: true });
         }
 
         try {
@@ -548,14 +571,40 @@ export default function createServer({ config }: { config: Config }) {
             continue;
           }
 
-          const mdFile = findMd(extractDir, extractDir);
-          if (mdFile) {
-            const mdContent = readFileSync(mdFile, "utf-8");
-            writeFileSync(mdOutputPath, mdContent, "utf-8");
-            downloaded.push(`OK: ${stem}.md`);
-          } else {
-            errors.push(`NO_MD: ${safeName} - no .md file found in zip`);
+          // Find essential files in extracted zip
+          const mdFile = findFile(extractDir, "full.md", extractDir);
+          if (!mdFile) {
+            errors.push(`NO_MD: ${safeName} - no full.md found in zip`);
+            continue;
           }
+
+          // Create paper folder and copy essential files with named prefixes
+          mkdirSync(paperDir, { recursive: true });
+
+          // 1. Markdown (essential)
+          copyFileSync(mdFile, join(paperDir, `${stem}.md`));
+
+          // 2. Structured content list (useful for AI navigation)
+          const contentFile = findFile(extractDir, "content_list_v2.json", extractDir);
+          if (contentFile) {
+            copyFileSync(contentFile, join(paperDir, `${stem}_content.json`));
+          }
+
+          // 3. Images directory (figures/tables referenced by markdown)
+          // Manual copy to skip symlinks (cpSync follows them, bypassing zip-slip protection)
+          const imagesDir = findDir(extractDir, "images", extractDir);
+          if (imagesDir) {
+            const destImages = join(paperDir, "images");
+            mkdirSync(destImages, { recursive: true });
+            for (const entry of readdirSync(imagesDir, { withFileTypes: true })) {
+              if (entry.isSymbolicLink()) continue;
+              if (entry.isFile()) {
+                copyFileSync(join(imagesDir, entry.name), join(destImages, entry.name));
+              }
+            }
+          }
+
+          downloaded.push(`OK: ${stem}/`);
 
           // Cleanup zip
           unlinkSync(zipPath);
