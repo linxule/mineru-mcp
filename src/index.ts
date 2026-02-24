@@ -255,7 +255,7 @@ export default function createServer({ config }: { config: Config }) {
     "mineru_batch",
     "Parse multiple URLs in one batch (max 200). Preferred over mineru_upload_batch — faster and more reliable. Use public URLs (arXiv, SSRN, publisher sites) when available.",
     {
-      urls: z.array(z.string()).describe("Array of document URLs"),
+      urls: z.union([z.array(z.string()), z.string()]).describe("Array of document URLs, or a single URL string"),
       model: z
         .enum(["pipeline", "vlm"])
         .optional()
@@ -270,12 +270,25 @@ export default function createServer({ config }: { config: Config }) {
         .describe("Extra export formats"),
     },
     async (params) => {
-      if (params.urls.length > 200) {
+      // Normalize urls: accept string (JSON array or single URL) or array
+      let urls: string[];
+      if (typeof params.urls === "string") {
+        try {
+          const parsed = JSON.parse(params.urls);
+          urls = Array.isArray(parsed) ? parsed : [params.urls];
+        } catch {
+          urls = [params.urls];
+        }
+      } else {
+        urls = params.urls;
+      }
+
+      if (urls.length > 200) {
         throw new Error("Max 200 URLs per batch. Split into smaller batches.");
       }
 
       const requestData: Record<string, unknown> = {
-        files: params.urls.map((url) => ({ url })),
+        files: urls.map((url) => ({ url })),
         model_version: params.model || defaultModel,
       };
 
@@ -291,7 +304,7 @@ export default function createServer({ config }: { config: Config }) {
         content: [
           {
             type: "text",
-            text: `Batch created: ${result.batch_id}\n${params.urls.length} files queued.\nUse mineru_batch_status to check progress.`,
+            text: `Batch created: ${result.batch_id}\n${urls.length} files queued.\nUse mineru_batch_status to check progress.`,
           },
         ],
       };
@@ -334,7 +347,7 @@ export default function createServer({ config }: { config: Config }) {
     "Upload local files for batch parsing. SLOW: uploads can take minutes and may timeout. Prefer mineru_batch with public URLs (arXiv, SSRN, publisher sites) when available — it's faster and more reliable. Only use this for files not available online.",
     {
       directory: z.string().optional().describe("Directory path containing PDF/DOC/PPT files"),
-      files: z.array(z.string()).optional().describe("Array of absolute file paths (alternative to directory)"),
+      files: z.union([z.array(z.string()), z.string()]).optional().describe("Array of absolute file paths, or a single path string"),
       model: z
         .enum(["pipeline", "vlm"])
         .optional()
@@ -350,10 +363,19 @@ export default function createServer({ config }: { config: Config }) {
     async (params) => {
       const supportedExts = new Set([".pdf", ".doc", ".docx", ".ppt", ".pptx", ".png", ".jpg", ".jpeg"]);
 
-      // Collect files
+      // Collect files — normalize string input (JSON array or single path)
       let filePaths: string[] = [];
-      if (params.files?.length) {
-        filePaths = params.files;
+      if (params.files) {
+        if (typeof params.files === "string") {
+          try {
+            const parsed = JSON.parse(params.files);
+            filePaths = Array.isArray(parsed) ? parsed : [params.files];
+          } catch {
+            filePaths = [params.files];
+          }
+        } else {
+          filePaths = params.files;
+        }
       } else if (params.directory) {
         const dir = params.directory;
         if (!existsSync(dir)) {
