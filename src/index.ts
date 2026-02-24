@@ -253,7 +253,7 @@ export default function createServer({ config }: { config: Config }) {
   // Tool 3: mineru_batch
   server.tool(
     "mineru_batch",
-    "Parse multiple URLs in one batch (max 200).",
+    "Parse multiple URLs in one batch (max 200). Preferred over mineru_upload_batch — faster and more reliable. Use public URLs (arXiv, SSRN, publisher sites) when available.",
     {
       urls: z.array(z.string()).describe("Array of document URLs"),
       model: z
@@ -331,7 +331,7 @@ export default function createServer({ config }: { config: Config }) {
   // Tool 5: mineru_upload_batch
   server.tool(
     "mineru_upload_batch",
-    "Upload local files from a directory for batch parsing. Handles file upload to MinerU servers. Returns batch_id to track with mineru_batch_status. Use mineru_download_results to get named markdown files.",
+    "Upload local files for batch parsing. SLOW: uploads can take minutes and may timeout. Prefer mineru_batch with public URLs (arXiv, SSRN, publisher sites) when available — it's faster and more reliable. Only use this for files not available online.",
     {
       directory: z.string().optional().describe("Directory path containing PDF/DOC/PPT files"),
       files: z.array(z.string()).optional().describe("Array of absolute file paths (alternative to directory)"),
@@ -376,12 +376,14 @@ export default function createServer({ config }: { config: Config }) {
 
       // Validate files exist and build request with collision-safe data_ids
       const fileEntries: Array<{ name: string; data_id: string }> = [];
+      const fileSizes: number[] = [];
       const usedDataIds = new Set<string>();
       for (const fp of filePaths) {
         if (!existsSync(fp)) {
           throw new Error(`File not found: ${fp}`);
         }
         const stats = statSync(fp);
+        fileSizes.push(stats.size);
         if (stats.size > 200 * 1024 * 1024) {
           throw new Error(`File too large (${(stats.size / 1024 / 1024).toFixed(0)}MB): ${basename(fp)}. Max 200MB.`);
         }
@@ -415,38 +417,47 @@ export default function createServer({ config }: { config: Config }) {
 
       // Upload each file to presigned OSS URLs using native fetch
       // Presigned URLs are signed WITHOUT Content-Type — axios force-adds it, so use fetch
+      // Size-proportional timeout: 60s base + 2s per MB (fail fast for small files, generous for large)
       const uploadResults: string[] = [];
       for (let i = 0; i < filePaths.length; i++) {
         const fp = filePaths[i];
         const uploadUrl = result.file_urls[i];
         const fileName = basename(fp);
+        const sizeMB = (fileSizes[i] / 1024 / 1024).toFixed(1);
+        const timeoutMs = Math.max(60_000, 60_000 + Math.ceil(fileSizes[i] / (1024 * 1024)) * 2_000);
         try {
           const fileData = readFileSync(fp);
           const resp = await fetch(uploadUrl, {
             method: "PUT",
             body: fileData,
-            signal: AbortSignal.timeout(300_000),
+            signal: AbortSignal.timeout(timeoutMs),
           });
           if (!resp.ok) {
             const body = await resp.text();
-            uploadResults.push(`FAIL: ${fileName} - HTTP ${resp.status}: ${body.slice(0, 200)}`);
+            uploadResults.push(`FAIL: ${fileName} (${sizeMB}MB) - HTTP ${resp.status}: ${body.slice(0, 200)}`);
           } else {
-            uploadResults.push(`OK: ${fileName}`);
+            uploadResults.push(`OK: ${fileName} (${sizeMB}MB)`);
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          uploadResults.push(`FAIL: ${fileName} - ${msg}`);
+          const isTimeout = err instanceof DOMException && err.name === "TimeoutError";
+          uploadResults.push(`FAIL: ${fileName} (${sizeMB}MB) - ${isTimeout ? `TIMEOUT after ${Math.round(timeoutMs / 1000)}s` : msg}`);
         }
       }
 
       const successCount = uploadResults.filter((r) => r.startsWith("OK")).length;
       const failCount = uploadResults.filter((r) => r.startsWith("FAIL")).length;
+      const timeoutCount = uploadResults.filter((r) => r.includes("TIMEOUT")).length;
 
       let text = `Batch ${result.batch_id}: ${successCount} uploaded, ${failCount} failed.\n`;
-      text += `Parsing starts automatically. Use mineru_batch_status to track.\n`;
-      text += `Use mineru_download_results with this batch_id to get named .md files.\n`;
+      if (successCount > 0) {
+        text += `Parsing starts automatically. Use mineru_batch_status to track.\n`;
+      }
       if (failCount > 0) {
         text += `\nFailed uploads:\n${uploadResults.filter((r) => r.startsWith("FAIL")).join("\n")}`;
+      }
+      if (timeoutCount > 0) {
+        text += `\n\nTIP: Upload timed out. Try mineru_batch with public URLs instead (arXiv, SSRN, publisher sites) — it's faster and more reliable.`;
       }
 
       return {
