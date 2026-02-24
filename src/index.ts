@@ -469,7 +469,7 @@ export default function createServer({ config }: { config: Config }) {
   // Tool 6: mineru_download_results
   server.tool(
     "mineru_download_results",
-    "Download batch results and extract named paper folders. Each folder contains {name}.md, {name}_content.json (structured TOC), and images/.",
+    "Download batch results and extract named paper folders. Each folder contains {name}.md, {name}_content.json (structured TOC), and images/. Output includes parsed title — verify it matches the expected paper.",
     {
       batch_id: z.string().describe("Batch ID from mineru_upload_batch or mineru_batch"),
       output_dir: z.string().describe("Directory to save markdown files"),
@@ -595,6 +595,11 @@ export default function createServer({ config }: { config: Config }) {
           // 1. Markdown (essential)
           copyFileSync(mdFile, join(paperDir, `${stem}.md`));
 
+          // Extract title from first heading for verification
+          const mdHead = readFileSync(mdFile, "utf-8").slice(0, 500);
+          const titleMatch = mdHead.match(/^#\s+(.+)/m);
+          const parsedTitle = titleMatch ? titleMatch[1].trim().slice(0, 120) : null;
+
           // 2. Structured content list (useful for AI navigation)
           const contentFile = findFile(extractDir, "content_list_v2.json", extractDir);
           if (contentFile) {
@@ -615,7 +620,7 @@ export default function createServer({ config }: { config: Config }) {
             }
           }
 
-          downloaded.push(`OK: ${stem}/`);
+          downloaded.push(parsedTitle ? `OK: ${stem}/ — "${parsedTitle}"` : `OK: ${stem}/`);
 
           // Cleanup zip
           unlinkSync(zipPath);
