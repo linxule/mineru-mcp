@@ -22,22 +22,30 @@ MCP server for MinerU document parsing API — PDF/DOC/PPT/images to markdown.
 
 ## Architecture
 
-Single-file server (`src/index.ts`, ~684 lines) with 6 tools:
+Single-file server (`src/index.ts`, ~695 lines) with 6 tools:
 
 | Tool | Purpose | Flow |
 |------|---------|------|
 | `mineru_parse` | Parse single URL | Returns `task_id` |
 | `mineru_status` | Check task progress | Poll with `task_id` |
-| `mineru_batch` | Parse multiple URLs | Returns `batch_id` |
+| `mineru_batch` | Parse multiple URLs (preferred) | Returns `batch_id` |
 | `mineru_batch_status` | Check batch progress | Poll with `batch_id` |
-| `mineru_upload_batch` | Upload local files | Returns `batch_id` |
+| `mineru_upload_batch` | Upload local files (slow, use URLs when possible) | Returns `batch_id` |
 | `mineru_download_results` | Download named paper folders | Uses `batch_id`, saves to `output_dir` |
 
-### Local file workflow
+### URL workflow (preferred)
 
 ```
-mineru_upload_batch (directory or files)
-  → mineru_batch_status (poll until all done, ~60s for 15 PDFs)
+mineru_batch (array of public URLs — arXiv, SSRN, publisher sites)
+  → mineru_batch_status (poll until all done)
+  → mineru_download_results (extracts named paper folders)
+```
+
+### Local file workflow (fallback)
+
+```
+mineru_upload_batch (directory or files — slow, may timeout)
+  → mineru_batch_status (poll until all done)
   → mineru_download_results (extracts named paper folders)
 ```
 
@@ -46,7 +54,8 @@ mineru_upload_batch (directory or files)
 1. Collects files from `directory` or `files` param
 2. Requests presigned OSS upload URLs from `/file-urls/batch`
 3. Uploads each file via PUT to presigned URL (native fetch, no Content-Type header)
-4. MinerU processes automatically; poll with `mineru_batch_status`
+4. Size-proportional timeout: 60s base + 2s per MB. On timeout, suggests switching to URL approach.
+5. MinerU processes automatically; poll with `mineru_batch_status`
 
 ### How download works
 
