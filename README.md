@@ -2,6 +2,10 @@
 
 MCP server for [MinerU](https://mineru.net) document parsing API — extract text, tables, and formulas from PDFs, DOCs, and images.
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/linxule-mineru-mcp).
+
 ## Features
 
 - **VLM model** — 90%+ accuracy for complex documents
