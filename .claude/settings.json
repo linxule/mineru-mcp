@@ -1,0 +1,11 @@
+{
+  "enabledPlugins": {
+    "cloudflare@cloudflare": false,
+    "collab@collab-local": false,
+    "design@design-local": false,
+    "frontend-design@claude-plugins-official": false,
+    "playground@claude-plugins-official": false,
+    "scholarly@scholarly-local": false,
+    "vercel@claude-plugins-official": false
+  }
+}
