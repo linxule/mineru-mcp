@@ -97,3 +97,14 @@ Naming uses `author_year_title` convention from the original filename, with spac
 - Daily quota: 2000 pages at high priority
 - Batch: max 200 files per request
 - Models: `pipeline` (fast) or `vlm` (90% accuracy, recommended for academic PDFs)
+
+## Release (tokenless OIDC)
+
+CI (`.github/workflows/publish-mcp.yml`) publishes on a `v*` tag — to npm (OIDC Trusted Publishing) **and** the MCP Registry (`mcp-publisher login github-oidc`, namespace `io.github.linxule/mineru`). Tokenless; no manual `npm publish` / `mcp-publisher`. Bun toolchain (`bun.lock`), grouped Dependabot. Since v1.1.4.
+
+1. Bump `version` in **`package.json` AND `server.json`** (both top-level `version` and `packages[0].version`) — npm + Registry reject duplicate versions.
+2. `bun run build` (tsc)
+3. Commit + push (PRs run the build gate)
+4. `git tag vX.Y.Z && git push origin vX.Y.Z` → CI publishes npm then the Registry.
+
+**One-time setup (done 2026-06-22):** npm Trusted Publisher for `mineru-mcp` (owner `linxule`, repo, workflow `publish-mcp.yml`, Environment blank; 2FA mode = "2FA **or** automation tokens"). Migrated npm→bun at v1.1.4 (the old `package-lock.json` was stale).
