@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # npm deps (bun.lock at root). Grouped into one PR (patterns: ["*"]) so a
+  # refresh is ~one PR, not one per dependency (avoids the first-run flood).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+    groups:
+      root-deps:
+        patterns: ["*"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ["*"]
