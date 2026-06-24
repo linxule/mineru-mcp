@@ -1,5 +1,7 @@
 {
   "enabledPlugins": {
+    "mcp-server-dev@claude-plugins-official": true,
+    "mcp-apps@claude-plugins-official": true,
     "cloudflare@cloudflare": false,
     "collab@collab-local": false,
     "design@design-local": false,
