@@ -15,10 +15,14 @@ MCP server for MinerU document parsing API — PDF/DOC/PPT/images to markdown.
 - **Provider**: MinerU (OpenXLab) — https://mineru.net
 - **Format**: JWT token (Bearer auth)
 - **Expiry**: Tokens auto-expire after ~90 days from issuance
-- **Current key expires**: 2026-05-19
+- **Don't hard-code the expiry date here** — a stale one is worse than none. (This line used to read "Current key expires: 2026-05-19" and sat ~2 months past that, presenting an expired key as current.) Read the real expiry from the token itself:
+  ```bash
+  # decode the JWT payload -> exp (unix seconds)
+  python3 -c "import base64,json,os,sys;t=os.environ['MINERU_API_KEY'].split('.')[1];print(json.loads(base64.urlsafe_b64decode(t+'='*(-len(t)%4)))['exp'])"
+  ```
 - **Config location**: `~/.claude.json` under `mcpServers.mineru.env.MINERU_API_KEY` (appears in both global and project-level entries)
 - **Env var**: `MINERU_API_KEY`
-- **Troubleshooting 401**: Decode the JWT payload (`iat`/`exp` fields) to check expiration. Tokens are not refreshable — generate a new one from mineru.net.
+- **Troubleshooting 401**: almost always an expired token. Decode `exp` (above); tokens are **not refreshable** — generate a new one at mineru.net and update *both* the global and project-level entries in `~/.claude.json`.
 
 ## Architecture
 
