@@ -16,7 +16,7 @@ try {
   const fromSdk = createRequire(join(packageDir, 'node_modules/@modelcontextprotocol/sdk/dist/esm/server/streamableHttp.js'));
   const adapter = JSON.parse(readFileSync(join(dirname(fromSdk.resolve('@hono/node-server')), '../package.json'), 'utf8'));
   assert.match(adapter.version, /^1\./, 'The SDK HTTP adapter must retain Node 18 support');
-  execFileSync('bunx', ['node@18', '--test', 'tests/mcp.test.mjs'], { cwd: packageDir, stdio: 'inherit' });
+  execFileSync(process.execPath, ['--test', 'tests/mcp.test.mjs'], { cwd: packageDir, stdio: 'inherit' });
 } finally {
   rmSync(temporary, { recursive: true, force: true });
 }
