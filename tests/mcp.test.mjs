@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
@@ -38,6 +40,7 @@ async function mockApi(t) {
 }
 
 async function verifyTools(client, requests) {
+  assert.equal(client.getServerVersion().version, packageVersion);
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map(tool => tool.name).sort(), ['mineru_batch', 'mineru_batch_status', 'mineru_download_results', 'mineru_parse', 'mineru_status', 'mineru_upload_batch']);
   assert.deepEqual(tools.find(tool => tool.name === 'mineru_parse').inputSchema.required, ['url']);

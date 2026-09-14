@@ -4,6 +4,7 @@
  * Run with: bun run start:http or node dist/server.js
  */
 
+import { VERSION } from "./version.js";
 import express from "express";
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -102,7 +103,7 @@ app.get("/health", (req, res) => {
 // Start the HTTP server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`MinerU MCP HTTP Server v1.0.2 listening on port ${PORT}`);
+  console.log(`MinerU MCP HTTP Server v${VERSION} listening on port ${PORT}`);
   console.log(`Endpoint: http://localhost:${PORT}/mcp`);
   console.log(`Health: http://localhost:${PORT}/health`);
 });

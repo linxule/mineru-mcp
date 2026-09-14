@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { VERSION } from "./version.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -175,7 +176,7 @@ export default function createServer({ config }: { config: Config }) {
   // Create MCP server
   const server = new McpServer({
     name: "mineru",
-    version: "1.0.2",
+    version: VERSION,
   });
 
   // Tool 1: mineru_parse

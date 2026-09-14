@@ -321,6 +321,13 @@ mineru_upload_batch → mineru_batch_status (poll) → mineru_download_results
 - Daily quota: 2000 pages at high priority
 - Batch: max 200 files per request
 
+## Release 1.1.5
+
+Maintenance release: audited dependency updates, Express 5 and Zod 4 compatibility,
+and regression coverage for both transports. The MCP handshake and HTTP startup
+message now report the package version instead of the stale 1.0.2 value. Tool
+inputs and document-processing behavior are unchanged.
+
 ## Development
 
 Use Bun 1.4.2 and Node.js 24 for the build and CI checks:
@@ -338,6 +345,18 @@ provider errors, malformed HTTP requests, and session termination without real
 credentials or API calls. They do not verify live parsing or file extraction.
 Dependabot updates the Bun manifest and lockfile together. CI audits dependencies
 and runs the build and runtime tests before publishing on version tags.
+
+### Publishing
+
+Bump `package.json` and both version fields in `server.json`, complete the checks
+above, merge, then push the matching `vX.Y.Z` tag. CI publishes to npm, waits for
+the exact package version to become available, then registers it with the MCP Registry.
+If registry registration fails after npm succeeds, retry only registration using
+the existing immutable tag:
+
+```sh
+gh workflow run publish-mcp.yml --ref main -f registry_tag=v1.1.5
+```
 
 ## License
 
