@@ -321,6 +321,24 @@ mineru_upload_batch → mineru_batch_status (poll) → mineru_download_results
 - Daily quota: 2000 pages at high priority
 - Batch: max 200 files per request
 
+## Development
+
+Use Bun 1.4.2 and Node.js 24 for the build and CI checks:
+
+```sh
+bun install --frozen-lockfile
+bun audit
+bun run build
+bun run test
+```
+
+The runtime tests exercise the built stdio and HTTP servers against a local
+MinerU API double. They check tool schemas, request mapping, pagination defaults,
+provider errors, malformed HTTP requests, and session termination without real
+credentials or API calls. They do not verify live parsing or file extraction.
+Dependabot updates the Bun manifest and lockfile together. CI audits dependencies
+and runs the build and runtime tests before publishing on version tags.
+
 ## License
 
 MIT

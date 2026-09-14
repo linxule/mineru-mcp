@@ -1,7 +1,7 @@
 name: CI & publish
 
-# Verification (build) runs on every PR to main and on version tags. On a version
-# tag it ALSO publishes — to npm AND the MCP Registry — both via GitHub OIDC, so
+# Verification (audit, build, runtime tests) runs on PRs to main and version tags.
+# On a version tag it ALSO publishes — to npm AND the MCP Registry — both via GitHub OIDC, so
 # there are NO secrets and nothing to expire:
 #   - npm: requires a Trusted Publisher configured for this repo + this workflow
 #     on npmjs.com (package Settings -> Trusted Publisher). npm >= 11.5.1
@@ -26,18 +26,24 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
-
-      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          bun-version: "1.4.2"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - run: bun install --frozen-lockfile
 
+      - run: bun audit
+
       - run: bun run build # tsc
+
+      - run: bun run test
 
       - name: Guard — tag must match package.json version
         if: startsWith(github.ref, 'refs/tags/v')

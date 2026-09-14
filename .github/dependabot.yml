@@ -1,8 +1,8 @@
 version: 2
 updates:
-  # npm deps (bun.lock at root). Grouped into one PR (patterns: ["*"]) so a
+  # Bun dependencies and bun.lock are updated together. Grouped so a
   # refresh is ~one PR, not one per dependency (avoids the first-run flood).
-  - package-ecosystem: "npm"
+  - package-ecosystem: "bun"
     directory: "/"
     schedule:
       interval: "weekly"
