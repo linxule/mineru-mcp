@@ -1,6 +1,6 @@
 {
   "name": "mineru-mcp",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "MCP server for MinerU document parsing API - optimized for Claude Code with 73% token reduction",
   "type": "module",
   "main": "dist/index.js",
@@ -19,7 +19,8 @@
     "dev": "tsx src/index.ts",
     "dev:http": "tsx src/server.ts",
     "prepublishOnly": "bun run build",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:package": "node scripts/test-package.mjs"
   },
   "keywords": [
     "mcp",
@@ -46,7 +47,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "~1.29.0",
     "axios": "^1.20.0",
     "express": "^5.2.1",
     "zod": "^4.6.5"

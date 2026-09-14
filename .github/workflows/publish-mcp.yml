@@ -53,6 +53,9 @@ jobs:
 
       - run: bun run test
 
+      - name: Verify fresh package install on Node 18
+        run: bun run test:package
+
       - name: Guard — tag must match package.json version
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         env:

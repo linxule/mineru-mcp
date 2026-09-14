@@ -321,6 +321,16 @@ mineru_upload_batch → mineru_batch_status (poll) → mineru_download_results
 - Daily quota: 2000 pages at high priority
 - Batch: max 200 files per request
 
+## Release 1.1.6
+
+Restores Node.js 18 HTTP compatibility for fresh installs by retaining MCP SDK
+1.29.x and its Node 18-compatible Hono adapter. SDK 1.30 permits an adapter that
+requires Node.js 20. Version 1.1.5 passed the locked dependency checks but the
+published-package check exposed an HTTP initialization failure on a fresh install.
+CI now installs the packed package without the repository lock and exercises both
+transports on Node.js 18. The SDK compatibility bound is intentional; revisit it
+with this consumer-install gate before adopting a newer SDK.
+
 ## Release 1.1.5
 
 Maintenance release: audited dependency updates, Express 5 and Zod 4 compatibility,
@@ -337,6 +347,7 @@ bun install --frozen-lockfile
 bun audit
 bun run build
 bun run test
+bun run test:package
 ```
 
 The runtime tests exercise the built stdio and HTTP servers against a local
@@ -355,7 +366,7 @@ If registry registration fails after npm succeeds, retry only registration using
 the existing immutable tag:
 
 ```sh
-gh workflow run publish-mcp.yml --ref main -f registry_tag=v1.1.5
+gh workflow run publish-mcp.yml --ref main -f registry_tag=v1.1.6
 ```
 
 ## License
