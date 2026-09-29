@@ -1,0 +1,159 @@
+{
+  "hash_profile": "scholia.canonical-json.v1",
+  "positive": [
+    {
+      "name": "empty",
+      "input_json": "{\"z\":[],\"a\":{},\"empty\":\"\",\"none\":null,\"bool\":false}",
+      "canonical_json": "{\"a\":{},\"bool\":false,\"empty\":\"\",\"none\":null,\"z\":[]}",
+      "sha256": "c7eb7038f9bbc403a8da250e987075eb4c461b2322bed022cec44552743002ae"
+    },
+    {
+      "name": "nested",
+      "input_json": "{\"z\":{\"β\":[true,null,{\"b\":2,\"a\":1}]},\"a\":[\"é\",\"é\"]}",
+      "canonical_json": "{\"a\":[\"é\",\"é\"],\"z\":{\"β\":[true,null,{\"a\":1,\"b\":2}]}}",
+      "sha256": "d025e0d82e69bf3fae18f881acf3a75707aa57f4b3c1433456cda77d199890d8"
+    },
+    {
+      "name": "scalar-order",
+      "input_json": "{\"😀\":1,\"\\ue000\":2,\"𐀀\":3,\"a\":4}",
+      "canonical_json": "{\"a\":4,\"\":2,\"𐀀\":3,\"😀\":1}",
+      "sha256": "1308e49017c100d31a0e004f2d9577f00a6b022f963c64319dd761f173a57990"
+    },
+    {
+      "name": "numeric-key-order",
+      "input_json": "{\"2\":2,\"10\":10,\"1\":1}",
+      "canonical_json": "{\"1\":1,\"10\":10,\"2\":2}",
+      "sha256": "c275fda38f0b687f7087b787ccd45762b4b2d2f423285407dd864feb1cf73635"
+    },
+    {
+      "name": "escapes",
+      "input_json": "{\"text\":\"line\\n\\t\\r\\b\\f\\u0001/\\\"\\\\\",\"ls\":\"\\u2028\\u2029\"}",
+      "canonical_json": "{\"ls\":\"  \",\"text\":\"line\\n\\t\\r\\b\\f\\u0001/\\\"\\\\\"}",
+      "sha256": "ad525bbfde851827cc4549936b58cb224a00617f3bce0ea2137820b7b661a64b"
+    },
+    {
+      "name": "safe-integers",
+      "input_json": "[-9007199254740991,9007199254740991,-0,0.0,1e3,1.000]",
+      "canonical_json": "[-9007199254740991,9007199254740991,0,0,1000,1]",
+      "sha256": "a44d79c36b87209175019b4a4ce6d6921be39e80bcc168fed2b2903a1d274b71"
+    },
+    {
+      "name": "unsafe-integers",
+      "input_json": "[9007199254740992,-9007199254740992,9007199254740993]",
+      "canonical_json": "[{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"9007199254740992\"},{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"-9007199254740992\"},{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"9007199254740993\"}]",
+      "sha256": "e0658d79c1be48e78d4c87d7a2f6f28947decf1bd21353fdd8c55644a38320bd"
+    },
+    {
+      "name": "exact-decimals",
+      "input_json": "[1.2500,1.23456789012345678901234567890123456789,1e-7,-12.3400,-0e10]",
+      "canonical_json": "[{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"1.25\"},{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"1.23456789012345678901234567890123456789\"},{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"0.0000001\"},{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"-12.34\"},0]",
+      "sha256": "8f2854e9c23eec3794e30a336439e95c572a1ad4724da104ce2ad77dff1659d1"
+    },
+    {
+      "name": "integral-exponents",
+      "input_json": "[9.007199254740991e15,9.007199254740992e15,1e21,100000000000000000000.000]",
+      "canonical_json": "[9007199254740991,{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"9007199254740992\"},{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"1000000000000000000000\"},{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"100000000000000000000\"}]",
+      "sha256": "83b954d7eaecda52671b683107b95dd3c55838045d13621ef99bbb11de618239"
+    },
+    {
+      "name": "prototype-keys",
+      "input_json": "{\"__proto__\":{\"constructor\":true},\"toString\":null}",
+      "canonical_json": "{\"__proto__\":{\"constructor\":true},\"toString\":null}",
+      "sha256": "3141024f68a13963d17da0119390038f00319313cbfbe2ad906f646dff377857"
+    },
+    {
+      "name": "surrogate-pair",
+      "input_json": "{\"\\ud83d\\ude00\":\"\\ud800\\udc00\"}",
+      "canonical_json": "{\"😀\":\"𐀀\"}",
+      "sha256": "376ce28750fe5368afd8a9bd52f43c59857bbb883118239b57adcdf717093bc9"
+    },
+    {
+      "name": "materializer-config",
+      "input_json": "{\"max_markdown_bytes\":67108864,\"max_blocks\":10000,\"max_block_chars\":16000}",
+      "canonical_json": "{\"max_block_chars\":16000,\"max_blocks\":10000,\"max_markdown_bytes\":67108864}",
+      "sha256": "be0bb8d4823b91b0bbfc8165f77571b2fbbcae42eac90a8aa7f6c6cdf00089c6"
+    }
+  ],
+  "negative": [
+    {
+      "name": "duplicate-key",
+      "input_json": "{\"a\":1,\"a\":2}"
+    },
+    {
+      "name": "escaped-duplicate",
+      "input_json": "{\"a\":1,\"\\u0061\":2}"
+    },
+    {
+      "name": "nested-duplicate",
+      "input_json": "{\"x\":[{\"b\":1,\"b\":2}]}"
+    },
+    {
+      "name": "nan",
+      "input_json": "NaN"
+    },
+    {
+      "name": "infinity",
+      "input_json": "Infinity"
+    },
+    {
+      "name": "negative-infinity",
+      "input_json": "-Infinity"
+    },
+    {
+      "name": "unpaired-high",
+      "input_json": "\"\\ud800\""
+    },
+    {
+      "name": "unpaired-low-key",
+      "input_json": "{\"\\udc00\":1}"
+    },
+    {
+      "name": "reserved-prefix",
+      "input_json": "{\"$scholia.user\":1}"
+    },
+    {
+      "name": "spoofed-decimal",
+      "input_json": "{\"$scholia.type\":\"decimal\",\"$scholia.value\":\"1.2\"}"
+    },
+    {
+      "name": "nested-reserved",
+      "input_json": "{\"options\":[{\"$scholia.x\":null}]}"
+    },
+    {
+      "name": "leading-zero",
+      "input_json": "01"
+    },
+    {
+      "name": "leading-plus",
+      "input_json": "+1"
+    },
+    {
+      "name": "missing-fraction",
+      "input_json": "1."
+    },
+    {
+      "name": "missing-exponent",
+      "input_json": "1e"
+    },
+    {
+      "name": "trailing-comma",
+      "input_json": "[1,]"
+    },
+    {
+      "name": "trailing-token",
+      "input_json": "true false"
+    },
+    {
+      "name": "control",
+      "input_json": "\"\n\""
+    },
+    {
+      "name": "fixed-decimal-limit",
+      "input_json": "1e100001"
+    },
+    {
+      "name": "negative-decimal-limit",
+      "input_json": "1e-100001"
+    }
+  ]
+}

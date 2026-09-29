@@ -1,0 +1,91 @@
+{
+  "fixture_version": "1.0.1",
+  "hash_profile": "scholia.canonical-json.v1",
+  "files": [
+    {
+      "path": "README.md",
+      "size_bytes": 1272,
+      "sha256": "6d05947a2ae95972f0ac7e83f3b6f0b1fbb2e9d82b09c9c87cc56ba0f49d31fb"
+    },
+    {
+      "path": "artifact-bundle.schema.json",
+      "size_bytes": 26155,
+      "sha256": "703a3055b84478c4b5c7775a154c7e7aba0048f717157cb650f06b653bc6a5cd"
+    },
+    {
+      "path": "bundles/artifact-bundle-v1-partial.json",
+      "size_bytes": 5379,
+      "sha256": "202d25289e725d65d396e8a43dc32d1b94a65b5123b271ce11a2e79e4ac53b35"
+    },
+    {
+      "path": "bundles/artifact-bundle-v1.json",
+      "size_bytes": 4399,
+      "sha256": "65c823bd886704e804509497c15c47980597585edc5c2cbea5a9b4ecd5daba3f"
+    },
+    {
+      "path": "bundles/artifact-bundle-v4.json",
+      "size_bytes": 4386,
+      "sha256": "f776139be39241cc88ab7815a2f449bf28a043e5fe429e2dbec902891aa74ced"
+    },
+    {
+      "path": "bundles/cases.json",
+      "size_bytes": 2499,
+      "sha256": "60b354041c16904fd2860370e0fac4d671af1a8276d87cd90d1f641829f162fe"
+    },
+    {
+      "path": "bundles/negative/duplicate-artifact-id.json",
+      "size_bytes": 6100,
+      "sha256": "90c5fb56350aa27456bdb93bf1ed862913f9ca19921aa6b2d2994243ccc982ca"
+    },
+    {
+      "path": "bundles/negative/duplicate-member-id.json",
+      "size_bytes": 4386,
+      "sha256": "502513d225f0fab249243b5b66b11bb23a8381d96a3b4cc58b0b30da45708c70"
+    },
+    {
+      "path": "bundles/negative/file-present-absence-reason.json",
+      "size_bytes": 4397,
+      "sha256": "2ebacdad2e908a6534f4cd34ada29f89a0f283c6c48cd1cb4b591190aace40bd"
+    },
+    {
+      "path": "bundles/negative/missing-output-accounting.json",
+      "size_bytes": 4355,
+      "sha256": "a96674aa3ac4c4b61255419a2d6a4077b386ffe43e0d65b941ef3e9a332c565c"
+    },
+    {
+      "path": "bundles/negative/no-retained-output.json",
+      "size_bytes": 2670,
+      "sha256": "e51fb7fc8cd7caf0525243510a4cef51b0b3499b143528584d30a3d47fb1599b"
+    },
+    {
+      "path": "bundles/negative/source-file-hash-mismatch.json",
+      "size_bytes": 4386,
+      "sha256": "49fef979006bef9f4dd73c119a1269737c833b0245843da332fbf1390e4cb692"
+    },
+    {
+      "path": "bundles/negative/unknown-page-count-complete.json",
+      "size_bytes": 4387,
+      "sha256": "fc06ac4b689c39bac50c56a833d667158a19966df6d3e039d0711a166adfae79"
+    },
+    {
+      "path": "bundles/negative/unsafe-member-path.json",
+      "size_bytes": 4389,
+      "sha256": "35534fde0242535bc23738008b46d985fa7472ec1e9aac0ec66fed7ae4c46182"
+    },
+    {
+      "path": "bundles/negative/unsupported-schema-version.json",
+      "size_bytes": 4386,
+      "sha256": "239c1042c74ca2a602d353e83738ea4524ad2c4a2dc495a3937df050415e940d"
+    },
+    {
+      "path": "bundles/page-map-unmapped.json",
+      "size_bytes": 244,
+      "sha256": "4d085bb96f62ee9440a65800ec336a5be8ff5868b6d655fe4b4d49fe4c9b008f"
+    },
+    {
+      "path": "canonical/vectors.json",
+      "size_bytes": 5793,
+      "sha256": "da001607dfbf61a10af81abdf5f20f6b4e6a0f9e0eaa14978d44d3fd6bc10ec6"
+    }
+  ]
+}

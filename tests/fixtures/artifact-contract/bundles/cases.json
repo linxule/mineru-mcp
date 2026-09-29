@@ -1,0 +1,77 @@
+{
+  "fixture_version": "1.0.1",
+  "cases": [
+    {
+      "path": "bundles/artifact-bundle-v4.json",
+      "valid": true,
+      "rejection_layer": null,
+      "reason": "Synthetic normative manifest; byte validation requires companion synthetic bytes."
+    },
+    {
+      "path": "bundles/artifact-bundle-v1.json",
+      "valid": true,
+      "rejection_layer": null,
+      "reason": "Synthetic normative manifest; byte validation requires companion synthetic bytes."
+    },
+    {
+      "path": "bundles/artifact-bundle-v1-partial.json",
+      "valid": true,
+      "rejection_layer": null,
+      "reason": "Synthetic normative manifest; byte validation requires companion synthetic bytes."
+    },
+    {
+      "path": "bundles/negative/no-retained-output.json",
+      "valid": false,
+      "rejection_layer": "schema",
+      "reason": "No archive or detached output; diagnostic only."
+    },
+    {
+      "path": "bundles/negative/missing-output-accounting.json",
+      "valid": false,
+      "rejection_layer": "schema",
+      "reason": "Required unavailable-output field is missing."
+    },
+    {
+      "path": "bundles/negative/unsupported-schema-version.json",
+      "valid": false,
+      "rejection_layer": "schema",
+      "reason": "Unsupported bundle version."
+    },
+    {
+      "path": "bundles/negative/unsafe-member-path.json",
+      "valid": false,
+      "rejection_layer": "semantic",
+      "reason": "Raw member path must be checked beyond JSON Schema."
+    },
+    {
+      "path": "bundles/negative/duplicate-member-id.json",
+      "valid": false,
+      "rejection_layer": "semantic",
+      "reason": "Member IDs must be unique within each archive."
+    },
+    {
+      "path": "bundles/negative/source-file-hash-mismatch.json",
+      "valid": false,
+      "rejection_layer": "semantic",
+      "reason": "Source file identity must agree with source record."
+    },
+    {
+      "path": "bundles/negative/unknown-page-count-complete.json",
+      "valid": false,
+      "rejection_layer": "semantic",
+      "reason": "All-pages intent with unknown count cannot establish complete coverage."
+    },
+    {
+      "path": "bundles/negative/file-present-absence-reason.json",
+      "valid": false,
+      "rejection_layer": "semantic",
+      "reason": "Present source file requires null absence reason."
+    },
+    {
+      "path": "bundles/negative/duplicate-artifact-id.json",
+      "valid": false,
+      "rejection_layer": "semantic",
+      "reason": "Artifact IDs are globally unique."
+    }
+  ]
+}

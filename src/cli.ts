@@ -4,6 +4,7 @@
 // tools, so the CLI and the server can never drift apart.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { createBundle } from "./bundle/manifest.js";
 import createServer from "./index.js";
 
 const PREFIX = "mineru_";
@@ -16,6 +17,7 @@ function usage(tools: Array<{ name: string; description?: string }>): string {
     "",
     "usage: mineru-cloud <command> [--option value ...] [--wait]",
     "       mineru-cloud list",
+    "       mineru-cloud bundle --source exact.pdf --archive result.zip --output directory [--json]",
     "",
     "commands:",
   ];
@@ -27,6 +29,7 @@ function usage(tools: Array<{ name: string; description?: string }>): string {
     "",
     "options mirror the tool's parameters (--url, --pages, --total-pages, --output-dir, ...).",
     "values: numbers and true/false are coerced; JSON arrays/objects are parsed.",
+    "--json emits structured lifecycle state (provider errors exit 1; partial/unknown exit 2).",
     "--wait re-runs a status/merge/download command every 10s until nothing is still processing.",
     "env: MINERU_API_KEY (required), MINERU_BASE_URL, MINERU_DEFAULT_MODEL",
   );
@@ -58,6 +61,7 @@ function parseArgs(argv: string[], props: Record<string, PropSchema>): { command
   let wait = false;
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
+    if (a === "--json") continue;
     if (a === "--wait") { wait = true; continue; }
     if (!a.startsWith("--")) throw new Error(`Unexpected argument: ${a}`);
     let key = a.slice(2);
@@ -72,28 +76,18 @@ function parseArgs(argv: string[], props: Record<string, PropSchema>): { command
   return { command, args, wait };
 }
 
-// --wait keeps polling only while the tool's own output says work is still in flight.
-// A failed task/slice is final: surface it, don't wait 30 min for it to change.
-function stillWorking(command: string, text: string): boolean {
-  switch (command) {
-    case "status":            // "running | <id> | 2/5 pages" (concise) or JSON (detailed)
-      return /^(pending|running|converting)\b/.test(text) || /"state":\s*"(pending|running|converting)"/.test(text);
-    case "batch-status": {    // "Batch <id>: 3/12 done" — done only counts finished-ok; failed ones never finish
-      const m = text.match(/^Batch \S+: (\d+)\/(\d+) done/);
-      return !!m && Number(m[1]) < Number(m[2]) && !/: failed\b/.test(text);
-    }
-    case "download-results":  // "... Still processing: N" appears whether or not some files were downloaded
-      return /still processing: [1-9]/i.test(text);
-    case "merge-slices":      // "Still processing: 201-400" — absent when only failures remain
-      return /Still processing:/.test(text);
-    default:
-      return false;
-  }
-}
-
 async function main() {
   const argv = process.argv.slice(2);
   const command = argv[0];
+  const json = argv.includes('--json');
+  if(command === 'bundle') {
+    const {args} = parseArgs(argv, {});
+    if(typeof args.source !== 'string' || typeof args.archive !== 'string' || typeof args.output !== 'string') throw new Error('bundle requires --source exact.pdf --archive result.zip --output directory');
+    if(Object.keys(args).some(key=>!['source','archive','output','batch_id','model','binding'].includes(key))) throw new Error('Unknown bundle option');
+    if(args.binding !== undefined && !['unknown','caller_asserted'].includes(String(args.binding))) throw new Error('binding must be unknown or caller_asserted');
+    const result = await createBundle({source:args.source,archive:args.archive,output:args.output,batchId:args.batch_id as string|undefined,model:args.model as string|undefined,binding:args.binding as 'unknown'|'caller_asserted'|undefined});
+    console.log(json?JSON.stringify({ok:true,...result}):`Bundle: ${result.bundle_dir}`);return;
+  }
 
   const server = createServer({
     config: {
@@ -135,7 +129,13 @@ async function main() {
     const text = (result.content as Array<{ type: string; text?: string }>)
       .filter((c) => c.type === "text").map((c) => c.text || "").join("\n");
     if (result.isError) throw new Error(text);
-    if (!(wait && stillWorking(command, text))) { console.log(text); return; }
+    const structured = result.structuredContent as {state?:string;pollable?:boolean}|undefined;
+    if (!(wait && structured?.pollable === true)) {
+      console.log(json?JSON.stringify({ok:true,...(structured??{state:'completed',text})}):text);
+      if(structured?.state === 'failed') process.exitCode=1;
+      else if(structured?.state === 'partial' || structured?.state === 'unknown') process.exitCode=2;
+      return;
+    }
     if (Date.now() - started > WAIT_MAX_MS) throw new Error(`Gave up waiting after 30 min:\n${text}`);
     process.stderr.write(`[wait] ${text.split("\n")[0].slice(0, 100)}\n`);
     await new Promise((r) => setTimeout(r, POLL_MS));
@@ -143,8 +143,10 @@ async function main() {
 }
 
 main()
-  .then(() => process.exit(0))
+  .then(() => process.exit(process.exitCode ?? 0))
   .catch((err) => {
-    console.error(err instanceof Error ? err.message : String(err));
+    const message=err instanceof Error ? err.message : String(err);
+    if(process.argv.includes('--json')) console.log(JSON.stringify({ok:false,state:'failed',code:'operation_failed',message}));
+    else console.error(message);
     process.exit(1);
   });

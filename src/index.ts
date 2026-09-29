@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+import { sha256 } from "./bundle/archive.js";
+import { lifecycle, normalizeState } from "./bundle/lifecycle.js";
+import { fetchArchive, retainArchive, safeOutput } from "./bundle/download.js";
+import { writeFileSync } from "node:fs";
 import { VERSION } from "./version.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -49,7 +53,7 @@ interface TaskResponse {
 interface TaskStatus {
   task_id: string;
   data_id?: string;
-  state: "pending" | "running" | "done" | "failed" | "converting";
+  state: string;
   full_zip_url?: string;
   err_msg?: string;
   extract_progress?: {
@@ -123,26 +127,6 @@ function findEntry(dir: string, targetName: string, baseDir: string, wantDir: bo
     }
   }
   return null;
-}
-
-async function downloadAndUnzip(zipUrl: string, tmpBase: string, stem: string): Promise<string> {
-  const zipPath = join(tmpBase, `${stem}.zip`);
-  // The CDN sometimes drops the first connection right after a result is published ("aborted"); retry once.
-  for (let attempt = 1; ; attempt++) {
-    try {
-      const response = await axios.get(zipUrl, { responseType: "stream", timeout: 120_000 });
-      await pipeline(response.data, createWriteStream(zipPath));
-      break;
-    } catch (err) {
-      if (attempt >= 3) throw err;
-      await new Promise((r) => setTimeout(r, 2_000 * attempt));
-    }
-  }
-  const extractDir = join(tmpBase, stem);
-  mkdirSync(extractDir, { recursive: true });
-  execFileSync("unzip", ["-o", "-q", zipPath, "-d", extractDir], { timeout: 60_000 });
-  unlinkSync(zipPath);
-  return extractDir;
 }
 
 // Format helpers
@@ -276,6 +260,7 @@ export default function createServer({ config }: { config: Config }) {
       const result = await mineruRequest<TaskResponse>("/extract/task", "POST", requestData);
 
       return {
+        structuredContent: {operation:{kind:'task',operation_id:result.task_id},state:'submitted',pollable:false},
         content: [
           {
             type: "text",
@@ -307,6 +292,7 @@ export default function createServer({ config }: { config: Config }) {
           : formatConciseStatus(status);
 
       return {
+        structuredContent: lifecycle(params.task_id, [status], 'task'),
         content: [{ type: "text", text }],
       };
     }
@@ -363,6 +349,7 @@ export default function createServer({ config }: { config: Config }) {
       const result = await mineruRequest<BatchResponse>("/extract/task/batch", "POST", requestData);
 
       return {
+        structuredContent: {operation:{kind:'batch',operation_id:result.batch_id},state:'submitted',pollable:false},
         content: [
           {
             type: "text",
@@ -398,6 +385,7 @@ export default function createServer({ config }: { config: Config }) {
           : formatConciseBatch(batch, params.limit ?? 10, params.offset ?? 0);
 
       return {
+        structuredContent: lifecycle(params.batch_id, batch.extract_result),
         content: [{ type: "text", text }],
       };
     }
@@ -545,6 +533,7 @@ export default function createServer({ config }: { config: Config }) {
       }
 
       return {
+        structuredContent: {operation:{kind:'batch',operation_id:result.batch_id},state:failCount?(successCount?'partial':'failed'):'submitted',pollable:false,uploaded:successCount,failed:failCount},
         content: [{ type: "text", text }],
       };
     }
@@ -560,186 +549,29 @@ export default function createServer({ config }: { config: Config }) {
       overwrite: z.boolean().optional().default(false).describe("Overwrite existing files"),
     },
     async (params) => {
-      // Check batch status
-      const batch = await mineruRequest<BatchStatus>(
-        `/extract-results/batch/${params.batch_id}`
-      );
-
-      const results = batch.extract_result;
-      const doneResults = results.filter((r) => r.state === "done" && r.full_zip_url);
-      const pendingResults = results.filter((r) => ["pending", "running", "converting"].includes(r.state));
-      const failedResults = results.filter((r) => r.state === "failed");
-
-      if (doneResults.length === 0 && pendingResults.length > 0) {
-        return {
-          content: [{
-            type: "text",
-            text: `Batch ${params.batch_id}: ${pendingResults.length} still processing, 0 done. Try again later.`,
-          }],
-        };
-      }
-
-      // Create output directory
-      mkdirSync(params.output_dir, { recursive: true });
-
-      const tmpBase = join(tmpdir(), `mineru-dl-${Date.now()}-${randomBytes(4).toString("hex")}`);
-      mkdirSync(tmpBase, { recursive: true });
-
-      const downloaded: string[] = [];
-      const errors: string[] = [];
-
-      // Depth-limited, symlink-safe file finder
-      const findFile = (dir: string, targetName: string, baseDir: string, depth = 0, maxDepth = 5): string | null => {
-        if (depth > maxDepth) return null;
-        const entries = readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isSymbolicLink()) continue; // skip symlinks (zip slip protection)
-          const fullPath = join(dir, entry.name);
-          if (entry.isFile() && (entry.name === targetName || entry.name.endsWith(`_${targetName}`))) {
-            const realPath = realpathSync(fullPath);
-            if (!realPath.startsWith(realpathSync(baseDir))) continue;
-            return fullPath;
-          }
-          if (entry.isDirectory()) {
-            const found = findFile(fullPath, targetName, baseDir, depth + 1, maxDepth);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
-
-      // Depth-limited, symlink-safe directory finder
-      const findDir = (dir: string, targetName: string, baseDir: string, depth = 0, maxDepth = 5): string | null => {
-        if (depth > maxDepth) return null;
-        const entries = readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          if (entry.isSymbolicLink()) continue;
-          const fullPath = join(dir, entry.name);
-          if (entry.isDirectory() && entry.name === targetName) {
-            const realPath = realpathSync(fullPath);
-            if (!realPath.startsWith(realpathSync(baseDir))) continue;
-            return fullPath;
-          }
-          if (entry.isDirectory()) {
-            const found = findDir(fullPath, targetName, baseDir, depth + 1, maxDepth);
-            if (found) return found;
-          }
-        }
-        return null;
-      };
-
-      for (const r of doneResults) {
-        // Prefer data_id (set by us from original filename) over file_name (API-returned, can be stale)
-        const rawName = r.data_id || r.file_name || "unknown";
-        const safeName = basename(rawName).replace(/[^a-zA-Z0-9_\-\.]/g, "_");
-        const stem = (safeName.replace(extname(safeName), "") || "unnamed").slice(0, 128);
-        const paperDir = join(params.output_dir, stem);
-
-        if (existsSync(paperDir)) {
-          if (!params.overwrite) {
-            downloaded.push(`SKIP: ${stem}/ (exists)`);
-            continue;
-          }
-          // Clean existing folder to avoid stale files from previous download
-          rmSync(paperDir, { recursive: true, force: true });
-        }
-
+      const batch = await mineruRequest<BatchStatus>(`/extract-results/batch/${params.batch_id}`);
+      const state = lifecycle(params.batch_id, batch.extract_result);
+      const downloaded: Array<{name:string; directory:string; skipped:boolean}> = [];
+      const errors: Array<{name:string; code:string; message:string}> = [];
+      const usedNames = new Set<string>();
+      for (const r of batch.extract_result) {
+        if (r.state !== 'done' || !r.full_zip_url) continue;
+        const raw = r.data_id || r.file_name || 'document';
+        const safe = basename(raw).replace(/[^a-zA-Z0-9_.-]/g, '_');
+        let stem = (safe.slice(0, safe.length - extname(safe).length) || 'document').slice(0, 128);
+        if (!/^[A-Za-z0-9]/.test(stem)) stem = `document_${stem}`.slice(0,128);
+        if(usedNames.has(stem.toLowerCase())) { errors.push({name:stem,code:'name_collision',message:'Ambiguous output name in batch; no overwrite performed.'});continue; }
+        usedNames.add(stem.toLowerCase());
         try {
-          // Download zip via streaming to avoid memory pressure
-          const zipPath = join(tmpBase, `${stem}.zip`);
-          const response = await axios.get(r.full_zip_url!, {
-            responseType: "stream",
-            timeout: 120_000,
-          });
-          await pipeline(response.data, createWriteStream(zipPath));
-
-          // Extract zip using execFileSync (no shell injection)
-          const extractDir = join(tmpBase, stem);
-          mkdirSync(extractDir, { recursive: true });
-          try {
-            execFileSync("unzip", ["-o", "-q", zipPath, "-d", extractDir], {
-              timeout: 60_000,
-            });
-          } catch (unzipErr) {
-            const msg = unzipErr instanceof Error ? unzipErr.message : String(unzipErr);
-            errors.push(`UNZIP_FAIL: ${safeName} - ${msg}`);
-            continue;
-          }
-
-          // Find essential files in extracted zip
-          const mdFile = findFile(extractDir, "full.md", extractDir);
-          if (!mdFile) {
-            errors.push(`NO_MD: ${safeName} - no full.md found in zip`);
-            continue;
-          }
-
-          // Create paper folder and copy essential files with named prefixes
-          mkdirSync(paperDir, { recursive: true });
-
-          // 1. Markdown (essential)
-          copyFileSync(mdFile, join(paperDir, `${stem}.md`));
-
-          // Extract title from first heading for verification
-          const mdHead = readFileSync(mdFile, "utf-8").slice(0, 500);
-          const titleMatch = mdHead.match(/^#\s+(.+)/m);
-          const parsedTitle = titleMatch ? titleMatch[1].trim().slice(0, 120) : null;
-
-          // 2. Structured content list (useful for AI navigation)
-          const contentFile = findFile(extractDir, "content_list_v2.json", extractDir);
-          if (contentFile) {
-            copyFileSync(contentFile, join(paperDir, `${stem}_content.json`));
-          }
-
-          // 3. Images directory (figures/tables referenced by markdown)
-          // Manual copy to skip symlinks (cpSync follows them, bypassing zip-slip protection)
-          const imagesDir = findDir(extractDir, "images", extractDir);
-          if (imagesDir) {
-            const destImages = join(paperDir, "images");
-            mkdirSync(destImages, { recursive: true });
-            for (const entry of readdirSync(imagesDir, { withFileTypes: true })) {
-              if (entry.isSymbolicLink()) continue;
-              if (entry.isFile()) {
-                copyFileSync(join(imagesDir, entry.name), join(destImages, entry.name));
-              }
-            }
-          }
-
-          downloaded.push(parsedTitle ? `OK: ${stem}/ — "${parsedTitle}"` : `OK: ${stem}/`);
-
-          // Cleanup zip
-          unlinkSync(zipPath);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          errors.push(`FAIL: ${safeName} - ${msg}`);
-        }
+          const retained = await retainArchive(await fetchArchive(r.full_zip_url),params.output_dir,stem,params.overwrite);
+          downloaded.push({name:stem,directory:retained.directory,skipped:retained.skipped});
+        } catch(error) { errors.push({name:stem,code:'download_failed',message:error instanceof Error?error.message:String(error)}); }
       }
-
-      // Cleanup temp directory
-      try {
-        rmSync(tmpBase, { recursive: true, force: true });
-      } catch { /* ignore cleanup errors */ }
-
-      let text = `Downloaded to: ${params.output_dir}\n`;
-      text += `Done: ${downloaded.filter((d) => d.startsWith("OK")).length}`;
-      text += ` | Skipped: ${downloaded.filter((d) => d.startsWith("SKIP")).length}`;
-      text += ` | Failed: ${errors.length}`;
-      if (pendingResults.length > 0) {
-        text += ` | Still processing: ${pendingResults.length}`;
-      }
-      if (failedResults.length > 0) {
-        text += ` | Parse failed: ${failedResults.length}`;
-      }
-      text += `\n\nFiles:\n${downloaded.join("\n")}`;
-      if (errors.length > 0) {
-        text += `\n\nErrors:\n${errors.join("\n")}`;
-      }
-      if (pendingResults.length > 0) {
-        text += `\n\nRe-run this tool to download remaining files once processing completes.`;
-      }
-
-      return {
-        content: [{ type: "text", text }],
-      };
+      const missing = batch.extract_result.filter(r=>r.state==='done'&&!r.full_zip_url);
+      for (const r of missing) errors.push({name:r.data_id||r.file_name,code:'not_returned',message:'Provider marked result done without an archive URL.'});
+      const result = {...state, state: errors.length ? (downloaded.length ? 'partial' : 'failed') : state.state, downloaded, errors, source_binding:'unknown', importable_bundle:false};
+      const text = `Batch ${params.batch_id}: Done: ${downloaded.filter(d=>!d.skipped).length} | Skipped: ${downloaded.filter(d=>d.skipped).length} | Still processing: ${state.counts.pending} | Errors: ${errors.length}\n` + downloaded.map(d=>`${d.skipped?'SKIP':'OK'}: ${d.name}/ (complete archive retained)`).join('\n') + errors.map(e=>`\n${e.code}: ${e.name} - ${e.message}`).join('');
+      return {structuredContent:result, content:[{type:'text',text}]};
     }
   );
 
@@ -822,14 +654,14 @@ export default function createServer({ config }: { config: Config }) {
       text += slices.map(([a, b]) => `  ${sliceDataId(name, a, b)}  pages ${a}-${b}`).join("\n");
       text += `\nPoll with mineru_batch_status, then mineru_merge_slices(batch_id, output_dir).`;
       if (uploadNotes.length) text += `\n\nUpload problems:\n${uploadNotes.join("\n")}`;
-      return { content: [{ type: "text", text }] };
+      return { structuredContent:{operation:{kind:'batch',operation_id:batchId},state:uploadNotes.length?'partial':'submitted',pollable:false,requested_slices:slices.map(([start,end])=>({start,end})),warnings:uploadNotes},content: [{ type: "text", text }] };
     }
   );
 
   // Tool 8: mineru_merge_slices — stitch a sliced batch back into one document
   server.tool(
     "mineru_merge_slices",
-    "Stitch the slices of a mineru_parse_long batch into one {name}/{name}.md (+ {name}_content.json with page_idx re-based to the whole document, + images/). Slices are ordered by their page range; each is marked with an HTML comment. Waits for nothing — if any slice is still processing, it reports and you re-run later.",
+    "Stitch the slices of a mineru_parse_long batch into one {name}/{name}.md (+ {name}_content.json with per-slice references and unknown page provenance). Slices are ordered by their page range; each is marked with an HTML comment. Waits for nothing — if any slice is still processing, it reports and you re-run later.",
     {
       batch_id: z.string().describe("Batch ID from mineru_parse_long"),
       output_dir: z.string().describe("Directory to write the merged document folder into"),
@@ -843,111 +675,49 @@ export default function createServer({ config }: { config: Config }) {
         .sort((a, b) => a.s.start - b.s.start);
       if (slices.length === 0) throw new Error("No slice entries in this batch (data_id must look like name__p00001-00200). Was it created by mineru_parse_long?");
 
-      const pending = slices.filter((x) => ["pending", "running", "converting"].includes(x.r.state));
-      const failed = slices.filter((x) => x.r.state === "failed");
-      // Anything else must be "done" with a zip; an unknown state without one is reported, not downloaded
-      const odd = slices.filter((x) => !pending.includes(x) && !failed.includes(x) && !(x.r.state === "done" && x.r.full_zip_url));
-      if (odd.length) throw new Error(`Slices in an unexpected state: ${odd.map((x) => `${x.s.start}-${x.s.end} (${x.r.state}${x.r.full_zip_url ? "" : ", no zip"})`).join("; ")}. Check mineru_batch_status.`);
-      if (pending.length || failed.length) {
-        let text = `Batch ${params.batch_id}: ${slices.length - pending.length - failed.length}/${slices.length} slices done.`;
-        if (pending.length) text += `\nStill processing: ${pending.map((x) => `${x.s.start}-${x.s.end}`).join(", ")}`;
-        if (failed.length) text += `\nFailed: ${failed.map((x) => `${x.s.start}-${x.s.end} (${x.r.err_msg || "no message"})`).join("; ")}\nRe-submit failed ranges with mineru_parse(pages=...) or fix and re-run mineru_parse_long.`;
-        if (pending.length) text += `\nRe-run mineru_merge_slices when all slices are done.`;
-        return { content: [{ type: "text", text }] };
+      const state = lifecycle(params.batch_id, batch.extract_result);
+      const pending = slices.filter(x=>['pending','running'].includes(normalizeState(x.r.state)));
+      const failed = slices.filter(x=>['failed','cancelled','canceled'].includes(x.r.state));
+      if (pending.length) {
+        const text = `Batch ${params.batch_id}: ${state.counts.succeeded}/${slices.length} slices done.\nStill processing: ${pending.map(x=>`${x.s.start}-${x.s.end}`).join(', ')}\nFailed: ${failed.map(x=>`${x.s.start}-${x.s.end} (${x.r.err_msg||'no message'})`).join('; ')}`;
+        return {structuredContent:{...state,coverage:'unknown',page_provenance:'unknown'},content:[{type:'text',text}]};
       }
-
       const name = slices[0].s.name;
-      const outDir = join(params.output_dir, name);
-      if (existsSync(outDir)) {
-        if (!params.overwrite) throw new Error(`${outDir} exists. Pass overwrite=true to replace it.`);
-        rmSync(outDir, { recursive: true, force: true });
+      if(!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/.test(name) || slices.some(x=>x.s.name!==name || x.s.start<1 || x.s.end<x.s.start)) throw new Error('Invalid or mixed slice identities');
+      if(slices.some((x,i)=>i>0&&x.s.start<=slices[i-1].s.end)) throw new Error('Overlapping slice ranges');
+      const root=safeOutput(params.output_dir), outDir=join(root,name);
+      if(existsSync(outDir)) {
+        if(!params.overwrite) throw new Error(`${outDir} exists. Pass overwrite=true to retain a new successor.`);
+        // Never discard old receipts while replacing a derived view.
       }
-      const imagesOut = join(outDir, "images");
-      mkdirSync(imagesOut, { recursive: true });
-
-      const tmpBase = join(tmpdir(), `mineru-merge-${Date.now()}-${randomBytes(4).toString("hex")}`);
-      mkdirSync(tmpBase, { recursive: true });
-
-      const mdParts: string[] = [];
-      // content_list_v2.json is an array of pages (each an array of blocks) — positional, so
-      // concatenation keeps page order; the older flat content_list.json carries page_idx per block.
-      const contentList: unknown[] = [];
-      let contentIsPaged = false;
-      const notes: string[] = [];
-      let imageCount = 0;
-      try {
-        for (const { r, s } of slices) {
-          const tag = `p${String(s.start).padStart(5, "0")}-${String(s.end).padStart(5, "0")}`;
-          const extractDir = await downloadAndUnzip(r.full_zip_url!, tmpBase, tag);
-
-          const mdFile = findEntry(extractDir, "full.md", extractDir, false);
-          if (!mdFile) { notes.push(`slice ${s.start}-${s.end}: no full.md in zip — its images and content list were skipped too`); continue; }
-          // Prefix image refs so slices can't collide on MinerU's per-zip image names
-          const md = readFileSync(mdFile, "utf-8").replace(/\]\(images\//g, `](images/${tag}_`);
-          mdParts.push(`<!-- mineru slice: pages ${s.start}-${s.end} -->\n\n${md.trim()}\n`);
-
-          const imagesDir = findEntry(extractDir, "images", extractDir, true);
-          if (imagesDir) {
-            for (const entry of readdirSync(imagesDir, { withFileTypes: true })) {
-              if (entry.isFile() && !entry.isSymbolicLink()) {
-                copyFileSync(join(imagesDir, entry.name), join(imagesOut, `${tag}_${entry.name}`));
-                imageCount++;
-              }
-            }
-          }
-
-          const contentFile = findEntry(extractDir, "content_list_v2.json", extractDir, false)
-            || findEntry(extractDir, "content_list.json", extractDir, false);
-          if (contentFile) {
-            try {
-              const items = JSON.parse(readFileSync(contentFile, "utf-8"));
-              const offset = s.start - 1; // slice page_idx is 0-based within the slice
-              const rebase = (item: unknown): unknown => {
-                if (Array.isArray(item)) return item.map(rebase);
-                if (item && typeof item === "object") {
-                  const o = { ...(item as Record<string, unknown>) };
-                  if (typeof o.page_idx === "number") o.page_idx = o.page_idx + offset;
-                  for (const k of Object.keys(o)) if (k !== "page_idx") o[k] = rebase(o[k]);
-                  return o;
-                }
-                // any image reference, whatever the key, follows the same per-slice prefix as the markdown
-                if (typeof item === "string" && item.startsWith("images/")) return `images/${tag}_${item.slice(7)}`;
-                return item;
-              };
-              const rebased = rebase(items);
-              if (Array.isArray(rebased) && rebased.every(Array.isArray)) contentIsPaged = true;
-              if (Array.isArray(rebased)) contentList.push(...rebased); else contentList.push(rebased);
-            } catch (err) {
-              notes.push(`slice ${s.start}-${s.end}: content list unreadable (${err instanceof Error ? err.message : String(err)})`);
-            }
-          }
-        }
-      } catch (err) {
-        // Don't leave a half-written folder that the next run would refuse to overwrite
-        try { rmSync(outDir, { recursive: true, force: true }); } catch { /* ignore */ }
-        throw err;
-      } finally {
-        try { rmSync(tmpBase, { recursive: true, force: true }); } catch { /* ignore */ }
+      safeOutput(outDir);
+      const mdParts:string[]=[], sliceRecords:unknown[]=[], missing:unknown[]=[], notes:string[]=[];
+      let gapStart=1;
+      for(const {r,s} of slices) {
+        if(s.start>gapStart) missing.push({start:gapStart,end:s.start-1,reason:'slice_not_returned'});
+        gapStart=s.end+1;
+        const range={start:s.start,end:s.end};
+        if(r.state!=='done'||!r.full_zip_url) {missing.push({...range,reason:r.state});continue;}
+        const tag=`p${String(s.start).padStart(5,'0')}-${String(s.end).padStart(5,'0')}`;
+        try {
+          const archive=await fetchArchive(r.full_zip_url);
+          const sliceDir=`${tag}-${sha256(archive)}`;
+          const retained=await retainArchive(archive,join(outDir,'slices'),sliceDir);
+          const markdown=retained.inventory.entries.filter(e=>/(^|\/)(?:[^/]*_)?full\.md$/.test(e.member.path));
+          const structured=retained.inventory.entries.filter(e=>e.member.role==='structured_json').map(e=>({member_id:e.member.member_id,path:e.member.path}));
+          sliceRecords.push({requested_range:range,archive_sha256:retained.inventory.sha256,client_data_id:r.data_id,archive_directory:`slices/${sliceDir}`,page_provenance:'unknown',original_page_offset:null,structured_members:structured});
+          if(markdown.length!==1) {missing.push({...range,reason:markdown.length?'ambiguous_markdown':'missing_markdown'});continue;}
+          const md=new TextDecoder('utf-8',{fatal:true}).decode(markdown[0].bytes);
+          mdParts.push(`<!-- mineru requested slice: ${s.start}-${s.end}; page provenance unknown -->\n\n${md.replace(/\]\(images\//g, `](slices/${sliceDir}/images/`)}\n`);
+        } catch(error) {missing.push({...range,reason:'download_or_content_failed'});notes.push(`${tag}: ${error instanceof Error?error.message:String(error)}`);}
       }
-
-      const mdPath = join(outDir, `${name}.md`);
-      const fh = createWriteStream(mdPath);
-      for (const part of mdParts) fh.write(part + "\n");
-      await new Promise<void>((resolve, reject) => { fh.on("error", reject); fh.end(resolve); });
-      if (contentList.length) {
-        const cfh = createWriteStream(join(outDir, `${name}_content.json`));
-        cfh.write(JSON.stringify(contentList));
-        await new Promise<void>((resolve, reject) => { cfh.on("error", reject); cfh.end(resolve); });
-      }
-
-      const titleMatch = mdParts[0]?.match(/^#\s+(.+)/m);
-      let text = `Merged ${mdParts.length}/${slices.length} slices (pages 1-${slices[slices.length - 1].s.end}) -> ${mdPath}`;
-      if (titleMatch) text += `\nTitle: "${titleMatch[1].trim().slice(0, 120)}"`;
-      text += contentIsPaged
-        ? `\nImages: ${imageCount} | content list: ${contentList.length} pages (array-per-page, whole-document order)`
-        : `\nImages: ${imageCount} | content list items: ${contentList.length} (page_idx re-based to the whole document, 0-based)`;
-      if (notes.length) text += `\n\nNotes:\n${notes.join("\n")}`;
-      return { content: [{ type: "text", text }] };
+      const suffix=params.overwrite?`-${Date.now()}-${randomBytes(3).toString('hex')}`:'';
+      const mdPath=join(outDir,`${name}${suffix}.md`);
+      writeFileSync(mdPath,mdParts.join('\n'),{flag:'wx'});
+      const receipt={schema:'mineru.slice-merge.v1',batch_id:params.batch_id,coverage:missing.length?'partial':'unknown',page_provenance:'unknown',missing_or_unknown_ranges:missing,slices:sliceRecords,notes};
+      writeFileSync(join(outDir,`${name}${suffix}_content.json`),JSON.stringify(receipt,null,2),{flag:'wx'});
+      const text=`Merged ${mdParts.length}/${slices.length} slices -> ${mdPath}\nCoverage: ${receipt.coverage}; page provenance unknown. Original structured JSON and every archive member retained by slice.\n${notes.join('\n')}`;
+      return {structuredContent:{...state,state:missing.length?'partial':state.state,...receipt,output:mdPath},content:[{type:'text',text}]};
     }
   );
 

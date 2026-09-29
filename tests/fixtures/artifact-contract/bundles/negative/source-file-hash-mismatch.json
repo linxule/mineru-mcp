@@ -1,0 +1,155 @@
+{
+  "schema": "scholia.artifact-bundle",
+  "schema_version": "1.0.1",
+  "created_at": "2026-09-20T00:00:00Z",
+  "producer": {
+    "name": "synthetic-contract-example",
+    "version": "1.0.0"
+  },
+  "source": {
+    "sha256": "ee29fc12fafe1e21efae73ade839692b43ae2bf8ab38c301e91071051cdae041",
+    "size_bytes": 75,
+    "media_type": "application/pdf",
+    "original_filename": "synthetic.pdf",
+    "page_count": null,
+    "file": {
+      "path": "source/source.pdf",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 75,
+      "media_type": "application/pdf"
+    },
+    "absence_reason": null,
+    "origin": {
+      "kind": "upload",
+      "url": null,
+      "fetched_at": null
+    }
+  },
+  "provider": {
+    "name": "mineru",
+    "api_generation": "v4",
+    "endpoint_origin": "https://mineru.net",
+    "operation": {
+      "kind": "batch",
+      "operation_id": "synthetic-v4-operation",
+      "file_id": null,
+      "client_data_id": "ee29fc12fafe1e21efae73ade839692b43ae2bf8ab38c301e91071051cdae041",
+      "terminal_state": "succeeded"
+    },
+    "request": {
+      "model": "vlm",
+      "tier": null,
+      "parser_version": null,
+      "options": {}
+    },
+    "reported": {
+      "model": null,
+      "model_version": null,
+      "tier": null,
+      "parser_version": null
+    },
+    "source_binding": {
+      "method": "unknown",
+      "evidence": "Synthetic example; no upload or provider checksum establishes source association."
+    },
+    "outputs_unavailable": []
+  },
+  "coverage": {
+    "status": "unknown",
+    "requested": {
+      "scope": "all",
+      "ranges": []
+    },
+    "completed": {
+      "ranges": [],
+      "basis": "unknown",
+      "evidence": []
+    },
+    "missing": {
+      "ranges": [],
+      "basis": "unknown",
+      "evidence": []
+    },
+    "unknown": {
+      "ranges": [],
+      "reason": "The synthetic fixture has no established page count or validated page mapping."
+    },
+    "source_complete": null
+  },
+  "archives": [
+    {
+      "artifact_id": "provider-archive",
+      "file": {
+        "path": "archives/22e08394d7c5b3a3cc6561df592aedeb757b0cdeea494c9bed03cc5bccf77180.zip",
+        "sha256": "22e08394d7c5b3a3cc6561df592aedeb757b0cdeea494c9bed03cc5bccf77180",
+        "size_bytes": 416,
+        "media_type": "application/zip"
+      },
+      "inventory_status": "complete",
+      "members": [
+        {
+          "member_id": "m0",
+          "entry_index": 0,
+          "path": "full.md",
+          "kind": "file",
+          "sha256": "fb8df7565dbeacf5fd719eaba4d106e172947e87beee276b793b4eb50871f6b0",
+          "size_bytes": 50,
+          "compressed_size_bytes": 50,
+          "role": "markdown",
+          "format_schema": null,
+          "format_version": null,
+          "media_type": "text/markdown"
+        },
+        {
+          "member_id": "m1",
+          "entry_index": 1,
+          "path": "opaque.bin",
+          "kind": "file",
+          "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+          "size_bytes": 4,
+          "compressed_size_bytes": 4,
+          "role": "unknown",
+          "format_schema": null,
+          "format_version": null,
+          "media_type": "application/octet-stream"
+        },
+        {
+          "member_id": "m2",
+          "entry_index": 2,
+          "path": "content_list.json",
+          "kind": "file",
+          "sha256": "265207a06c367e4ba3e5959b307bf20f821f2f54af443b84a377bf72b53affd8",
+          "size_bytes": 44,
+          "compressed_size_bytes": 44,
+          "role": "unknown",
+          "format_schema": null,
+          "format_version": null,
+          "media_type": "application/json"
+        }
+      ],
+      "file_id": null
+    }
+  ],
+  "provider_files": [],
+  "materializations": [],
+  "validation_limits": {
+    "max_archive_bytes": 536870912,
+    "max_members": 20000,
+    "max_member_bytes": 536870912,
+    "max_total_uncompressed_bytes": 2147483648,
+    "max_compression_ratio": 1000,
+    "max_manifest_bytes": 16777216
+  },
+  "warnings": [
+    {
+      "code": "synthetic_fixture",
+      "message": "Contract illustration only. No provider was contacted; source bytes are not a parseable PDF."
+    },
+    {
+      "code": "unknown_page_provenance",
+      "message": "No PDF page location can be claimed."
+    }
+  ],
+  "legacy_receipts": [],
+  "predecessor_manifest_sha256": null
+}

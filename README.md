@@ -24,9 +24,9 @@ MCP server for [MinerU](https://mineru.net) document parsing API — extract tex
 | `mineru_batch` | Parse multiple URLs (max 200) |
 | `mineru_batch_status` | Get batch results with pagination |
 | `mineru_upload_batch` | Upload local files for batch parsing |
-| `mineru_download_results` | Download results as named markdown files |
+| `mineru_download_results` | Retain complete archives, inventory all members, and create named compatibility copies |
 | `mineru_parse_long` | Document >200 pages: one batch of ≤200-page `page_ranges` slices |
-| `mineru_merge_slices` | Stitch a sliced batch into one `{name}.md` + `{name}_content.json` (page_idx re-based) + `images/` |
+| `mineru_merge_slices` | Join available Markdown and retain immutable slice archives with explicit unknown page provenance |
 
 ## Installation
 
@@ -241,6 +241,57 @@ mineru-cloud merge-slices --batch-id <id> --output-dir ./books --wait
 
 Options mirror the tool parameters with `_` → `-` (`--total-pages`, `--output-dir`); numbers,
 `true`/`false` and JSON arrays are coerced. Install: `bun add -g mineru-mcp` (or `npm i -g`).
+
+### Offline artifact bundles
+
+Create a portable Scholia v1.0.1 bundle from an existing provider ZIP and the exact
+source PDF. This command runs offline and does not require an API key:
+
+```bash
+mineru-cloud bundle --source /absolute/source.pdf --archive /absolute/result.zip \
+  --output /absolute/bundles --json
+```
+
+The command returns `bundle_dir`, an immutable directory containing `bundle.json`,
+the original PDF, and the byte-identical ZIP. Move the entire directory for import.
+Repeated inputs verify the existing bytes and return the same bundle. Optional
+`--batch-id` and `--model` record caller-supplied metadata. `--binding caller_asserted`
+records a qualified association; the default is `unknown`. Neither choice proves
+that the provider parsed those exact PDF bytes. The command does not infer page
+coverage, requested options, or provider versions from filenames.
+
+Only PDF sources qualify for this bundle. Existing non-PDF cloud commands remain
+available and produce diagnostic inventories. Unsafe archives are retained in
+quarantine, outside importable bundles. ZIP64, encrypted archives, special files,
+ambiguous legacy filename encodings, and unsafe or colliding paths are rejected.
+
+### Complete downloads and structured status
+
+`download-results` retains each ZIP under `{name}/archives/<sha256>.zip` and writes
+an `inventory.json` covering every member, including unknown formats. It also
+creates legacy `{name}.md`, `{name}_content.json`, and image copies when selection
+is unambiguous. A missing or ambiguous Markdown file does not discard the archive.
+No shell `unzip` executable is used. Inventory hashes expanded bytes incrementally;
+selected compatibility copies have a separate 64 MiB size limit.
+
+Use `--json` on lifecycle commands for structured operation IDs, normalized state,
+pollability, counts, and errors. `--wait` uses typed state across the whole batch,
+including entries outside the displayed page. It polls every 10 seconds for up to
+30 minutes. A failed entry does not hide other pending entries. Unknown provider
+states remain explicit. Exit status is 1 for failure and 2 for partial or unknown
+results. The 8 existing MCP tool names and their CLI commands remain available.
+
+Slice merges retain each archive under a hash-qualified directory. Earlier image
+links remain valid after a successor merge. The merged content JSON is a slice
+receipt with archive references, rather than a flattened array with assumed page
+offsets. Missing Markdown or failed slices produce an explicit partial result;
+otherwise coverage and original PDF page provenance remain unknown.
+
+These changes are validated with local fixtures and mocked providers. Standalone
+submission reservation, persisted upload recovery, and lost-ID reconciliation are
+not implemented. A process interruption after submission may leave an uncertain
+remote operation; do not assume that rerunning a submit command is safe. No new
+live provider capabilities or validated PDF page mappings are claimed here.
 
 ## Configuration
 

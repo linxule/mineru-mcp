@@ -26,7 +26,7 @@ MCP server for MinerU document parsing API — PDF/DOC/PPT/images to markdown.
 
 ## Architecture
 
-Single-file server (`src/index.ts`, ~1000 lines) with 8 tools:
+Server registration in `src/index.ts`, artifact modules in `src/bundle/`, and 8 existing tools:
 
 | Tool | Purpose | Flow |
 |------|---------|------|
@@ -37,7 +37,7 @@ Single-file server (`src/index.ts`, ~1000 lines) with 8 tools:
 | `mineru_upload_batch` | Upload local files (slow, use URLs when possible) | Returns `batch_id` |
 | `mineru_download_results` | Download named paper folders | Uses `batch_id`, saves to `output_dir` |
 | `mineru_parse_long` | Document >200 pages | One batch of ≤200-page `page_ranges` slices; `data_id` = `name__pAAAAA-BBBBB` |
-| `mineru_merge_slices` | Stitch a sliced batch | Orders by `data_id`, prefixes images per slice, re-bases `page_idx` |
+| `mineru_merge_slices` | Stitch a sliced batch | Orders by `data_id`, retains hash-qualified slice archives, and keeps page provenance unknown |
 
 ### URL workflow (preferred)
 
@@ -65,32 +65,50 @@ mineru_upload_batch (directory or files — slow, may timeout)
 
 ### How download works
 
-1. Fetches batch results from API
-2. Downloads each `.zip` result via streaming
-3. Extracts with `unzip` CLI (requires `unzip` on PATH)
-4. Creates named paper folder `{stem}/` in output directory
-5. Copies `full.md` → `{stem}.md`, `content_list_v2.json` → `{stem}_content.json`, and `images/`
-6. Skips all other files (layout.json, model.json, block_list.json, origin PDF)
+1. Fetch batch results from the API.
+2. Download each ZIP with a compressed-byte limit.
+3. Validate every entry, stream expanded-byte hashes, and check CRC integrity.
+4. Retain the byte-identical ZIP under `{stem}/archives/<sha256>.zip`.
+5. Write complete member inventory and diagnostic warnings.
+6. Create named Markdown, content JSON, and image copies only when unambiguous.
 
-### Output structure
+Unknown files, layout/model JSON, and provider PDFs remain in the retained ZIP.
+Unsafe archives go to quarantine. No shell `unzip` is used. ZIP64, encryption,
+legacy non-ASCII names without a UTF-8 flag, special entries, and unsafe paths
+are rejected. A retained diagnostic inventory has unknown source binding and
+is not an importable Scholia bundle by itself.
 
-Each paper gets a named folder for easy search by author/keyword across a literature library:
+### Offline bundle command
 
+```sh
+mineru-cloud bundle --source /absolute/source.pdf --archive /absolute/result.zip \
+  --output /absolute/bundles --json
 ```
-output_dir/
-├── wei2022_Chain-of-thought_prompting.../
-│   ├── wei2022_Chain-of-thought_prompting....md           ← paper content
-│   ├── wei2022_Chain-of-thought_prompting..._content.json ← structured TOC with semantic types
-│   └── images/                                             ← extracted figures/tables
-```
 
-- **`{stem}.md`** — full paper as markdown (essential, always present)
-- **`{stem}_content.json`** — structured content list with element types (title, paragraph, table, figure) and bounding boxes; useful for AI agents to quickly locate sections/figures without scanning full markdown
-- **`images/`** — extracted figures and tables referenced by the markdown
+This command publishes an immutable directory containing `bundle.json`, exact
+source bytes, and the original ZIP under the Scholia artifact contract 1.0.1.
+It requires no credentials. Binding defaults to `unknown`; an explicit
+`--binding caller_asserted` remains qualified. `--batch-id` and `--model` are
+optional caller metadata. No provider version, coverage, or source-upload proof
+is inferred. Replays verify retained bytes before returning the existing bundle.
 
-MinerU names files inside the zip `<task-uuid>_<name>` (`<uuid>_content_list_v2.json`) — finders match on suffix (fixed 1.2.0; before that `_content.json` was silently skipped).
+### Lifecycle and slice limits
 
-Naming uses `author_year_title` convention from the original filename, with spaces → underscores, special chars sanitized, max 128 chars.
+MCP lifecycle results include `structuredContent`; CLI lifecycle commands expose
+it with `--json`. Polling uses normalized states across the full batch, including
+pending entries outside pagination. All 8 public tool and command names remain.
+Standalone durable submission reservation and lost-ID recovery are not implemented.
+A CLI process restart is not proof that a prior cloud submission was rejected.
+
+Merged slices retain hash-qualified archives and report unknown page provenance.
+The content JSON now records slice references rather than flattening arrays or
+adding assumed page offsets. Missing content produces a partial result and never
+removes otherwise useful artifacts. Successor merges preserve earlier image links.
+
+Historical note: released 1.2.0 matched UUID-prefixed content filenames but used
+shell unzip, kept selected outputs, and assumed slice offsets. The current local
+implementation replaces those behaviors; its fixtures do not establish live
+provider or released-package validation. No version bump or release is implied.
 
 ## Development Notes
 
