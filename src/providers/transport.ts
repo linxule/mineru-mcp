@@ -1,6 +1,5 @@
 import {lookup} from 'node:dns/promises';
 import {request as httpsRequest} from 'node:https';
-import {request as httpRequest} from 'node:http';
 import {Readable} from 'node:stream';
 import {isIP} from 'node:net';
 export function publicAddress(address:string):boolean {
@@ -25,26 +24,71 @@ const pinnedFetch:typeof fetch=async(input,init={})=>{
 /** Bounded, credential-origin-aware transport. No implicit mutation retries. */
 export class ProviderError extends Error { constructor(public code:string,public uncertain=false,public retryAfter:number|null=null){super(code);} }
 export type Fetcher=typeof fetch;
+
+// Decode ASCII percent escapes even when an unrelated malformed escape is
+// present. A whole-string decodeURIComponent would miss that credential echo.
+function percentDecoded(value:string):string {
+ return value.replace(/%([0-9a-f]{2})/gi,(_match,hex)=>String.fromCharCode(parseInt(hex,16)));
+}
+
 export class Transport {
- constructor(readonly base:string,private key='',private fetcher:Fetcher=pinnedFetch){const u=new URL(base);if(u.username||u.password||u.search||u.hash||!['https:','http:'].includes(u.protocol))throw new ProviderError('invalid_endpoint');}
- async bytes(path:string,init:RequestInit={},limit=512*1024*1024,timeout=60000,apiAuth=false):Promise<Buffer>{
+ constructor(readonly base:string,private key='',private fetcher:Fetcher=pinnedFetch){const u=new URL(base);if(u.username||u.password||u.search||u.hash||!['https:','http:'].includes(u.protocol))throw new ProviderError('invalid_endpoint');this.rejectCredentialEcho(base);}
+
+ rejectCredentialEcho(value:string,uncertain=false,headerName=false):void {
+  if(!this.key)return;
+  const secret=headerName?this.key.toLowerCase():this.key;
+  let candidate=value;
+  for(let depth=0;depth<8;depth++){
+   if((headerName?candidate.toLowerCase():candidate).includes(secret))throw new ProviderError('credential_echo_forbidden',uncertain);
+   const decoded=percentDecoded(candidate);
+   if(decoded===candidate)return;
+   candidate=decoded;
+  }
+  // Bound decoding work and reject excessive nesting that could hide a key.
+  if((headerName?candidate.toLowerCase():candidate).includes(secret)||percentDecoded(candidate)!==candidate)throw new ProviderError('credential_echo_forbidden',uncertain);
+ }
+
+ rejectResponseEcho(value:unknown,uncertain=false):void {
+  const pending:unknown[]=[value];
+  while(pending.length){
+   const item=pending.pop();
+   if(typeof item==='string')this.rejectCredentialEcho(item,uncertain);
+   else if(Array.isArray(item))for(const child of item)pending.push(child);
+   else if(item&&typeof item==='object')for(const [name,child] of Object.entries(item)){
+    // Response keys can become HTTP header names or persisted format labels.
+    this.rejectCredentialEcho(name,uncertain,true);pending.push(child);
+   }
+  }
+ }
+
+ async bytes(path:string,init:RequestInit={},limit=512*1024*1024,timeout=60000,apiAuth=false,output=false):Promise<Buffer>{
   let url=new URL(path,this.base.endsWith('/')?this.base:this.base+'/'); const origin=new URL(this.base).origin;
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
   try {
    for(let redirects=0;redirects<=5;redirects++) {
+    this.rejectCredentialEcho(url.href);
     if(url.protocol!=='https:'||url.username||url.password||url.hostname==='localhost'||isIP(url.hostname.replace(/^\[|\]$/g,''))&&!publicAddress(url.hostname))throw new ProviderError('invalid_transport_url');
-    const headers=new Headers(init.headers);if(apiAuth&&redirects===0&&url.origin===origin&&this.key)headers.set('Authorization',`Bearer ${this.key}`);else if(redirects>0||headers.get('Authorization')===`Bearer ${this.key}`)headers.delete('Authorization');
+    const headers=new Headers(init.headers);
+    for(const [name,value] of headers){this.rejectCredentialEcho(name,false,true);this.rejectCredentialEcho(value);}
+    if(apiAuth&&redirects===0&&url.origin===origin&&this.key)headers.set('Authorization',`Bearer ${this.key}`);else if(redirects>0||headers.get('Authorization')===`Bearer ${this.key}`)headers.delete('Authorization');
     const response=await this.fetcher(url,{...init,headers,redirect:'manual',signal:controller.signal});
     if([301,302,303,307,308].includes(response.status)){await response.body?.cancel();if((init.method??'GET')!=='GET')throw new ProviderError('mutation_redirect',true);const location=response.headers.get('location');if(!location)throw new ProviderError('invalid_redirect');url=new URL(location,url);continue;}
-    if(!response.ok) { await response.body?.cancel(); const ra=response.headers.get('retry-after'),n=ra&&/^\d+$/.test(ra)?Number(ra):null;throw new ProviderError(response.status===401||response.status===403?'authentication_failed':response.status===429?'rate_limited':response.status>=500?'provider_unavailable':'provider_rejected',(init.method??'GET')!=='GET',n); }
+    if(!response.ok) { await response.body?.cancel(); const ra=response.headers.get('retry-after'),n=ra&&/^\d+$/.test(ra)?Number(ra):null;throw new ProviderError(response.status===401||response.status===403?'authentication_failed':response.status===429?'rate_limited':output&&[404,410].includes(response.status)?'output_expired':response.status>=500?'provider_unavailable':'provider_rejected',(init.method??'GET')!=='GET',n); }
     const chunks:Buffer[]=[];let size=0;const reader=response.body?.getReader();if(reader)try{for(;;){const r=await reader.read();if(r.done)break;size+=r.value.length;if(size>limit)throw new ProviderError('limit_exceeded');chunks.push(Buffer.from(r.value));}}finally{await reader.cancel().catch(()=>{});}
     return Buffer.concat(chunks,size);
    }
    throw new ProviderError('redirect_limit');
   }catch(error){if(error instanceof ProviderError)throw error;throw new ProviderError('transport_failed',(init.method??'GET')!=='GET');}finally{clearTimeout(timer);}
  }
- async apiBytes(path:string,limit=512*1024*1024){return this.bytes(path,{},limit,60000,true);}
- async json(path:string,method='GET',body?:unknown):Promise<any>{const bytes=await this.bytes(path,{method,headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)},16*1024*1024,60000,true);try{return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{throw new ProviderError('invalid_provider_response',method!=='GET');}}
+ async apiBytes(path:string,limit=512*1024*1024){return this.bytes(path,{},limit,60000,true,true);}
+ async json(path:string,method='GET',body?:unknown):Promise<any>{
+  const bytes=await this.bytes(path,{method,headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)},16*1024*1024,60000,true);
+  let value:unknown;
+  try{value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}catch{throw new ProviderError('invalid_provider_response',method!=='GET');}
+  // Inspect returned strings before identities or capability labels can reach
+  // a journal, bundle, or public result. A malformed POST remains uncertain.
+  this.rejectResponseEcho(value,method!=='GET');return value;
+ }
 }
 export function id(value:unknown):string {if(typeof value!=='string'||!value||value.length>256||/[\x00-\x20\x7f]|https?:|Bearer/i.test(value))throw new ProviderError('invalid_provider_identity');return value;}
 export function list(value:unknown):string[]{if(!Array.isArray(value)||value.some(x=>typeof x!=='string'))throw new ProviderError('invalid_capabilities');return value;}

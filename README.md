@@ -32,6 +32,10 @@ MCP server for [MinerU](https://mineru.net) document parsing API — extract tex
 
 Requires [Node.js](https://nodejs.org/) 18+ and a [MinerU API key](https://mineru.net).
 
+Local output retention, bundles, and durable operations require macOS or Linux.
+These paths use directory-bound filesystem operations and fail closed on Windows;
+the Windows client configuration below does not imply local retention support.
+
 ### CLI Install (one-liner)
 
 ```bash
@@ -321,6 +325,29 @@ Local cancellation does not cancel remote processing or remove uploaded data.
 Remote cancellation and automatic lost-ID association remain unsupported.
 Completed bundles preserve archives and every detached output, including unknown
 formats. Provider transport completion does not establish full PDF page coverage.
+
+When one output remains unavailable after bounded download attempts, the operation
+publishes a partial bundle containing the verified successes and typed failure
+details. `bundle --operation-id ID` can return that retained evidence. An explicit
+later `resume` may recover missing outputs from the same operation and publish a
+successor; earlier bundles remain immutable. A partial result is not permission
+to submit the document again.
+
+New operation commands use a structured Result envelope in CLI JSON and MCP
+`structuredContent`, while retaining the existing flattened fields for
+compatibility. Their CLI exit codes are 0 for `ok`, 1 for `partial` or `error`,
+and 2 for invalid arguments. The original eight commands retain their historical
+error=1 and partial=2 exit codes. Offline `bundle --source ... --archive ...`
+also retains its existing created/existing receipt shape. Check `status`,
+`state`, and recovery details rather than interpreting a nonzero exit as
+permission to resubmit.
+
+The process-restart tests kill workers at actual source, submission-intent,
+output-retention, and finalization checkpoints. Verified source orphans created
+before the first journal can be adopted safely; uncertain remote submissions
+cannot. Source/output writes are synced before their journal references. These
+tests establish bounded process-crash behavior, not a universal power-loss or
+network-filesystem durability guarantee.
 
 The modern V1 adapter uses `uploads`, `parse/jobs`, and `files/{id}/content`.
 It does not use the older `agent/parse` API. Explicit capability refresh queries

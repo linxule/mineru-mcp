@@ -49,7 +49,11 @@ async function verifyTools(client, requests) {
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map(tool => tool.name).sort(), ['mineru_batch','mineru_batch_status','mineru_bundle','mineru_cancel','mineru_capabilities','mineru_download_results','mineru_merge_slices','mineru_operation_status','mineru_parse','mineru_parse_long','mineru_resume','mineru_status','mineru_submit','mineru_upload_batch']);
   assert.deepEqual(tools.find(tool => tool.name === 'mineru_parse').inputSchema.required, ['url']);
-  const call = (name, args) => client.callTool({ name, arguments: args });
+  const call = async (name, args) => {
+    const result=await client.callTool({name,arguments:args});
+    if(result.structuredContent){const value=result.structuredContent;assert.ok(['ok','partial','error'].includes(value.status));assert.ok(value.data);assert.ok(Array.isArray(value.errors));assert.ok(Array.isArray(value.warnings));assert.equal(value.meta.extra.contract,'mineru.execution.v1');}
+    return result;
+  };
   const parsed = await call('mineru_parse', { url: 'https://example.test/paper.pdf', ocr: false, formula: false, table: true, formats: ['html'] });
   assert.match(parsed.content[0].text, /Task created: task-1/);
   assert.deepEqual(requests.at(-1).body, { url: 'https://example.test/paper.pdf', model_version: 'pipeline', is_ocr: false, enable_formula: false, enable_table: true, extra_formats: ['html'] });

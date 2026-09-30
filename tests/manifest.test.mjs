@@ -4,6 +4,9 @@ import { mkdtemp, writeFile, readFile, readdir, symlink, mkdir, rm } from 'node:
 import { join } from 'node:path';
 import { createBundle, validateBundleShape } from '../dist/bundle/manifest.js';
 import { crc32, sha256 } from '../dist/bundle/archive.js';
+import {zip as streamingZip} from './zip-fixture.mjs';
+import {randomBytes} from 'node:crypto';
+import {existsSync,renameSync,symlinkSync,readdirSync} from 'node:fs';
 
 function zip(files) {
   const local = [], central = []; let offset = 0;
@@ -57,6 +60,21 @@ test('reject malformed ZIP, preserve exact quarantine bytes without publishing',
   await assert.rejects(createBundle(f), e => {error=e;return e.code === 'archive_rejected';});
   assert.deepEqual(await readFile(error.quarantine_path), f.raw);
   assert.equal((await readdir(f.output)).some(n=>n.startsWith('bundle-')), false);
+});
+for(const rejected of [false,true])test(`bundle ${rejected?'quarantine':'publication'} rejects parent replacement during ZIP inspection`,async t=>{
+ const f=await fixture(t),outside=join(f.dir,'outside');await mkdir(outside);
+ const files=[{name:'full.md',body:randomBytes(256*1024),deflate:true}];
+ if(rejected)files.push({name:'../escape',body:'bad'});
+ await writeFile(f.archive,streamingZip(files));
+ const pending=createBundle(f);pending.catch(()=>{});
+ const deadline=Date.now()+10000;
+ while(!existsSync(f.output)){
+  if(Date.now()>deadline)throw new Error('Output was not pinned before inspection');
+  await new Promise(resolve=>setImmediate(resolve));
+ }
+ renameSync(f.output,join(f.dir,'original-output'));symlinkSync(outside,f.output);
+ await assert.rejects(pending,{code:'unsafe_path'});
+ assert.deepEqual(readdirSync(outside),[]);assert.deepEqual(readdirSync(join(f.dir,'original-output')),[]);
 });
 
 test('reject non-PDF, source symlink, symlink directory and output symlink', async t => {

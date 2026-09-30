@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { Operations } from "./operations.js";
-import { ProviderError } from "./providers/transport.js";
+import { Operations, executionResult, operationErrorCode } from "./operations.js";
+import {pinOutput, type PinnedDirectory} from "./bundle/filesystem.js";
+import { ProviderError, Transport } from "./providers/transport.js";
 import { sha256 } from "./bundle/archive.js";
 import { lifecycle, normalizeState } from "./bundle/lifecycle.js";
-import { fetchArchive, retainArchive, safeOutput } from "./bundle/download.js";
-import { writeFileSync } from "node:fs";
+import { fetchArchive, retainArchive } from "./bundle/download.js";
 import { VERSION } from "./version.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -180,6 +180,17 @@ export default function createServer({ config }: { config: Config }) {
   const apiKey = config.mineruApiKey;
   const baseUrl = config.mineruBaseUrl || "https://mineru.net/api/v4";
   const defaultModel = config.mineruDefaultModel || "pipeline";
+  const legacyGuard=new Transport(baseUrl,apiKey);
+  const guardTransfer=(url:string,headers?:Record<string,unknown>)=>{legacyGuard.rejectCredentialEcho(url);if(headers)legacyGuard.rejectResponseEcho(headers);};
+  const legacyArchive=(url:string)=>fetchArchive(url,guardTransfer);
+  async function legacyUpload(url:string,bytes:Buffer<ArrayBuffer>,timeout:number){
+    guardTransfer(url);
+    const response=await fetch(url,{method:'PUT',body:bytes,signal:AbortSignal.timeout(timeout),redirect:'manual'});
+    if([301,302,303,307,308].includes(response.status)){await response.body?.cancel();legacyGuard.rejectCredentialEcho(response.headers.get('location')??'',true);throw new ProviderError('mutation_redirect',true);}
+    if(!response.ok){const body=await response.text();legacyGuard.rejectCredentialEcho(body,true);return{ok:false,status:response.status,body};}
+    await response.body?.cancel();return{ok:true,status:response.status,body:''};
+  }
+
 
   // API client with injected config
   async function mineruRequest<T>(
@@ -192,9 +203,11 @@ export default function createServer({ config }: { config: Config }) {
     }
 
     try {
+      legacyGuard.rejectCredentialEcho(`${baseUrl}${endpoint}`,method!=='GET');
       const response = await axios({
         method,
         url: `${baseUrl}${endpoint}`,
+        maxRedirects:0,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
@@ -202,6 +215,8 @@ export default function createServer({ config }: { config: Config }) {
         data,
       });
 
+      legacyGuard.rejectResponseEcho(response.data,method!=='GET');
+      legacyGuard.rejectResponseEcho(response.headers,method!=='GET');
       const result = response.data;
       if (result.code !== 0) {
         const code = String(result.code);
@@ -212,6 +227,9 @@ export default function createServer({ config }: { config: Config }) {
       return result.data as T;
     } catch (error) {
       if (error instanceof AxiosError) {
+        legacyGuard.rejectResponseEcho(error.response?.data,method!=='GET');
+        legacyGuard.rejectResponseEcho(error.response?.headers,method!=='GET');
+        legacyGuard.rejectCredentialEcho(error.message,method!=='GET');
         const code = error.response?.data?.code;
         if (code) {
           const msg = ERROR_MESSAGES[String(code)] || error.response?.data?.msg;
@@ -230,16 +248,24 @@ export default function createServer({ config }: { config: Config }) {
   });
 
   const operations = () => new Operations({stateDir:config.mineruStateDir??process.env.MINERU_STATE_DIR,apiKey, v4Endpoint:baseUrl,v1Endpoint:config.mineruV1BaseUrl??process.env.MINERU_V1_BASE_URL,allowV1Execution:config.mineruV1Validated??false});
-  const execution = async (call:()=>Promise<any>) => {
-    try { const value=await call();const structuredContent={status:value.status??'ok',data:value.data??value,...value,meta:{...(value.meta??{}),extra:{...(value.meta?.extra??{}),contract:'mineru.execution.v1'}}};return{structuredContent,content:[{type:'text' as const,text:JSON.stringify(structuredContent,null,2)}]}; }
-    catch(error) {const code=error instanceof ProviderError?error.code:'local_operation_failed';const structuredContent={ok:false,status:'error',data:{state:'failed'},state:'failed',error:{code,message:code},meta:{extra:{contract:'mineru.execution.v1'}}};return{isError:true,structuredContent,content:[{type:'text' as const,text:code}]};}
+  const execution = async (operation:string,call:()=>Promise<any>) => {
+    try { const structuredContent=executionResult(await call(),operation);return{...(structuredContent.status==='error'?{isError:true}:{}),structuredContent,content:[{type:'text' as const,text:JSON.stringify(structuredContent,null,2)}]}; }
+    catch(error) {const code=operationErrorCode(error);const structuredContent=executionResult({status:'error',state:'failed',error:{code,message:code}},operation);return{isError:true,structuredContent,content:[{type:'text' as const,text:code}]};}
   };
-  server.tool('mineru_capabilities','Read locally known adapter capabilities; refresh explicitly performs discovery.',{api:z.enum(['v4','v1']).optional().default('v4'),refresh:z.boolean().optional().default(false)},p=>execution(()=>operations().capabilities(p.api,p.refresh)));
-  server.tool('mineru_submit','Submit once with a durable local journal. A lost remote ID requires reconciliation; it is never automatically resubmitted.',{file:z.string().optional(),url:z.string().optional(),api:z.enum(['v4','v1']).optional().default('v4'),direct_url:z.boolean().optional().default(false),model:z.string().optional(),tier:z.string().optional(),pages:z.string().optional(),output_dir:z.string()},p=>execution(()=>operations().submit(p)));
-  server.tool('mineru_operation_status','Read a durable operation snapshot; refresh performs one safe remote status request.',{operation_id:z.string(),refresh:z.boolean().optional().default(false)},p=>execution(()=>operations().status(p.operation_id,p.refresh)));
-  server.tool('mineru_resume','Continue safe recorded checkpoints without starting a second parse.',{operation_id:z.string()},p=>execution(()=>operations().resume(p.operation_id)));
-  server.tool('mineru_cancel','Stop local processing. Remote cancellation is unsupported unless verified.',{operation_id:z.string(),remote:z.boolean().optional().default(false)},p=>execution(()=>operations().cancel(p.operation_id,p.remote)));
-  server.tool('mineru_bundle','Validate a completed local operation bundle without downloading or parsing.',{operation_id:z.string()},p=>execution(()=>operations().bundle(p.operation_id)));
+  // Preserve the eight legacy text surfaces and flattened lifecycle aliases,
+  // while CLI JSON and MCP share one additive execution envelope.
+  const legacyExecution = async (operation:string,call:()=>Promise<any>) => {
+    try { const result=await call();legacyGuard.rejectResponseEcho(result);const value=result.structuredContent??{state:'completed'};
+      const status=['failed','failed_terminal'].includes(value.state)?'error':['partial','unknown','needs_input','reconciliation_required'].includes(value.state)?'partial':'ok';
+      return{...result,structuredContent:executionResult({...value,status},operation)};
+    }catch(error){let message=error instanceof Error?error.message:String(error),code=error instanceof ProviderError?error.code:'legacy_operation_failed';try{legacyGuard.rejectCredentialEcho(message);}catch{code='credential_echo_forbidden';message=code;}const structuredContent=executionResult({status:'error',state:'failed',error:{code,message,...(error instanceof ProviderError&&error.uncertain?{suggestion:'Inspect the provider outcome before retrying a possibly accepted request.'}:{})}},operation);return{isError:true,structuredContent,content:[{type:'text' as const,text:message}]};}
+  };
+  server.tool('mineru_capabilities','Read locally known adapter capabilities; refresh explicitly performs discovery.',{api:z.enum(['v4','v1']).optional().default('v4'),refresh:z.boolean().optional().default(false)},p=>execution('capabilities',()=>operations().capabilities(p.api,p.refresh)));
+  server.tool('mineru_submit','Submit once with a durable local journal. A lost remote ID requires reconciliation; it is never automatically resubmitted.',{file:z.string().optional(),url:z.string().optional(),api:z.enum(['v4','v1']).optional().default('v4'),direct_url:z.boolean().optional().default(false),model:z.string().optional(),tier:z.string().optional(),pages:z.string().optional(),output_dir:z.string()},p=>execution('submit',()=>operations().submit(p)));
+  server.tool('mineru_operation_status','Read a durable operation snapshot; refresh performs one safe remote status request.',{operation_id:z.string(),refresh:z.boolean().optional().default(false)},p=>execution('operation_status',()=>operations().status(p.operation_id,p.refresh)));
+  server.tool('mineru_resume','Continue safe recorded checkpoints without starting a second parse.',{operation_id:z.string()},p=>execution('resume',()=>operations().resume(p.operation_id)));
+  server.tool('mineru_cancel','Stop local processing. Remote cancellation is unsupported unless verified.',{operation_id:z.string(),remote:z.boolean().optional().default(false)},p=>execution('cancel',()=>operations().cancel(p.operation_id,p.remote)));
+  server.tool('mineru_bundle','Validate a completed local operation bundle without downloading or parsing.',{operation_id:z.string()},p=>execution('bundle',()=>operations().bundle(p.operation_id)));
 
   // Tool 1: mineru_parse
   server.tool(
@@ -261,7 +287,7 @@ export default function createServer({ config }: { config: Config }) {
         .optional()
         .describe("Extra export formats"),
     },
-    async (params) => {
+    async (params) => legacyExecution('parse', async () => {
       const requestData: Record<string, unknown> = {
         url: params.url,
         model_version: params.model || defaultModel,
@@ -285,7 +311,7 @@ export default function createServer({ config }: { config: Config }) {
           },
         ],
       };
-    }
+    })
   );
 
   // Tool 2: mineru_status
@@ -300,7 +326,7 @@ export default function createServer({ config }: { config: Config }) {
         .default("concise")
         .describe("Output format"),
     },
-    async (params) => {
+    async (params) => legacyExecution('status', async () => {
       const status = await mineruRequest<TaskStatus>(`/extract/task/${params.task_id}`);
 
       const text =
@@ -312,7 +338,7 @@ export default function createServer({ config }: { config: Config }) {
         structuredContent: lifecycle(params.task_id, [status], 'task'),
         content: [{ type: "text", text }],
       };
-    }
+    })
   );
 
   // Tool 3: mineru_batch
@@ -334,7 +360,7 @@ export default function createServer({ config }: { config: Config }) {
         .optional()
         .describe("Extra export formats"),
     },
-    async (params) => {
+    async (params) => legacyExecution('batch', async () => {
       // Normalize urls: accept string (JSON array or single URL) or array
       let urls: string[];
       if (typeof params.urls === "string") {
@@ -374,7 +400,7 @@ export default function createServer({ config }: { config: Config }) {
           },
         ],
       };
-    }
+    })
   );
 
   // Tool 4: mineru_batch_status
@@ -391,7 +417,7 @@ export default function createServer({ config }: { config: Config }) {
         .default("concise")
         .describe("Output format"),
     },
-    async (params) => {
+    async (params) => legacyExecution('batch_status', async () => {
       const batch = await mineruRequest<BatchStatus>(
         `/extract-results/batch/${params.batch_id}`
       );
@@ -405,7 +431,7 @@ export default function createServer({ config }: { config: Config }) {
         structuredContent: lifecycle(params.batch_id, batch.extract_result),
         content: [{ type: "text", text }],
       };
-    }
+    })
   );
 
   // Tool 5: mineru_upload_batch
@@ -427,7 +453,7 @@ export default function createServer({ config }: { config: Config }) {
         .optional()
         .describe("Extra export formats"),
     },
-    async (params) => {
+    async (params) => legacyExecution('upload_batch', async () => {
       const supportedExts = new Set([".pdf", ".doc", ".docx", ".ppt", ".pptx", ".png", ".jpg", ".jpeg"]);
 
       // Collect files — normalize string input (JSON array or single path)
@@ -516,13 +542,9 @@ export default function createServer({ config }: { config: Config }) {
         const timeoutMs = Math.max(60_000, 60_000 + Math.ceil(fileSizes[i] / (1024 * 1024)) * 2_000);
         try {
           const fileData = readFileSync(fp);
-          const resp = await fetch(uploadUrl, {
-            method: "PUT",
-            body: fileData,
-            signal: AbortSignal.timeout(timeoutMs),
-          });
+          const resp = await legacyUpload(uploadUrl,fileData,timeoutMs);
           if (!resp.ok) {
-            const body = await resp.text();
+            const body = resp.body;
             uploadResults.push(`FAIL: ${fileName} (${sizeMB}MB) - HTTP ${resp.status}: ${body.slice(0, 200)}`);
           } else {
             uploadResults.push(`OK: ${fileName} (${sizeMB}MB)`);
@@ -553,7 +575,7 @@ export default function createServer({ config }: { config: Config }) {
         structuredContent: {operation:{kind:'batch',operation_id:result.batch_id},state:failCount?(successCount?'partial':'failed'):'submitted',pollable:false,uploaded:successCount,failed:failCount},
         content: [{ type: "text", text }],
       };
-    }
+    })
   );
 
   // Tool 6: mineru_download_results
@@ -565,7 +587,7 @@ export default function createServer({ config }: { config: Config }) {
       output_dir: z.string().describe("Directory to save markdown files"),
       overwrite: z.boolean().optional().default(false).describe("Overwrite existing files"),
     },
-    async (params) => {
+    async (params) => legacyExecution('download_results', async () => {
       const batch = await mineruRequest<BatchStatus>(`/extract-results/batch/${params.batch_id}`);
       const state = lifecycle(params.batch_id, batch.extract_result);
       const downloaded: Array<{name:string; directory:string; skipped:boolean}> = [];
@@ -580,7 +602,7 @@ export default function createServer({ config }: { config: Config }) {
         if(usedNames.has(stem.toLowerCase())) { errors.push({name:stem,code:'name_collision',message:'Ambiguous output name in batch; no overwrite performed.'});continue; }
         usedNames.add(stem.toLowerCase());
         try {
-          const retained = await retainArchive(await fetchArchive(r.full_zip_url),params.output_dir,stem,params.overwrite);
+          const retained = await retainArchive(await legacyArchive(r.full_zip_url),params.output_dir,stem,params.overwrite);
           downloaded.push({name:stem,directory:retained.directory,skipped:retained.skipped});
         } catch(error) { errors.push({name:stem,code:'download_failed',message:error instanceof Error?error.message:String(error)}); }
       }
@@ -589,7 +611,7 @@ export default function createServer({ config }: { config: Config }) {
       const result = {...state, state: errors.length ? (downloaded.length ? 'partial' : 'failed') : state.state, downloaded, errors, source_binding:'unknown', importable_bundle:false};
       const text = `Batch ${params.batch_id}: Done: ${downloaded.filter(d=>!d.skipped).length} | Skipped: ${downloaded.filter(d=>d.skipped).length} | Still processing: ${state.counts.pending} | Errors: ${errors.length}\n` + downloaded.map(d=>`${d.skipped?'SKIP':'OK'}: ${d.name}/ (complete archive retained)`).join('\n') + errors.map(e=>`\n${e.code}: ${e.name} - ${e.message}`).join('');
       return {structuredContent:result, content:[{type:'text',text}]};
-    }
+    })
   );
 
   // Tool 7: mineru_parse_long — one document > 200 pages, submitted as ≤200-page slices in one batch
@@ -608,7 +630,7 @@ export default function createServer({ config }: { config: Config }) {
       table: z.boolean().optional().describe("Table recognition"),
       language: z.string().optional().describe("Language code: ch, en, etc"),
     },
-    async (params) => {
+    async (params) => legacyExecution('parse_long', async () => {
       if (!params.url === !params.file) throw new Error("Provide exactly one of 'url' or 'file'.");
 
       let totalPages = params.total_pages;
@@ -659,7 +681,7 @@ export default function createServer({ config }: { config: Config }) {
         const timeoutMs = 60_000 + Math.ceil(size / (1024 * 1024)) * 2_000;
         for (let i = 0; i < result.file_urls.length; i++) {
           try {
-            const resp = await fetch(result.file_urls[i], { method: "PUT", body: data, signal: AbortSignal.timeout(timeoutMs) });
+            const resp = await legacyUpload(result.file_urls[i],data,timeoutMs);
             if (!resp.ok) uploadNotes.push(`FAIL slice ${slices[i][0]}-${slices[i][1]}: HTTP ${resp.status}`);
           } catch (err) {
             uploadNotes.push(`FAIL slice ${slices[i][0]}-${slices[i][1]}: ${err instanceof Error ? err.message : String(err)}`);
@@ -672,7 +694,7 @@ export default function createServer({ config }: { config: Config }) {
       text += `\nPoll with mineru_batch_status, then mineru_merge_slices(batch_id, output_dir).`;
       if (uploadNotes.length) text += `\n\nUpload problems:\n${uploadNotes.join("\n")}`;
       return { structuredContent:{operation:{kind:'batch',operation_id:batchId},state:uploadNotes.length?'partial':'submitted',pollable:false,requested_slices:slices.map(([start,end])=>({start,end})),warnings:uploadNotes},content: [{ type: "text", text }] };
-    }
+    })
   );
 
   // Tool 8: mineru_merge_slices — stitch a sliced batch back into one document
@@ -684,7 +706,7 @@ export default function createServer({ config }: { config: Config }) {
       output_dir: z.string().describe("Directory to write the merged document folder into"),
       overwrite: z.boolean().optional().default(false).describe("Overwrite an existing merged folder"),
     },
-    async (params) => {
+    async (params) => legacyExecution('merge_slices', async () => {
       const batch = await mineruRequest<BatchStatus>(`/extract-results/batch/${params.batch_id}`);
       const slices = batch.extract_result
         .map((r) => ({ r, s: parseSliceId(r.data_id) }))
@@ -702,12 +724,13 @@ export default function createServer({ config }: { config: Config }) {
       const name = slices[0].s.name;
       if(!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/.test(name) || slices.some(x=>x.s.name!==name || x.s.start<1 || x.s.end<x.s.start)) throw new Error('Invalid or mixed slice identities');
       if(slices.some((x,i)=>i>0&&x.s.start<=slices[i-1].s.end)) throw new Error('Overlapping slice ranges');
-      const root=safeOutput(params.output_dir), outDir=join(root,name);
-      if(existsSync(outDir)) {
-        if(!params.overwrite) throw new Error(`${outDir} exists. Pass overwrite=true to retain a new successor.`);
-        // Never discard old receipts while replacing a derived view.
-      }
-      safeOutput(outDir);
+      const root=pinOutput(params.output_dir);let output:PinnedDirectory|undefined,slicesRoot:PinnedDirectory|undefined;
+      try {
+      const outDir=join(root.path,name);
+      if(root.exists(name)&&!params.overwrite)throw new Error(`${outDir} exists. Pass overwrite=true to retain a new successor.`);
+      // Keep the original directory identities across all download/inspection
+      // awaits. Successors retain every earlier receipt and image link.
+      output=root.openDirectory(name,true);slicesRoot=output.openDirectory('slices',true);
       const mdParts:string[]=[], sliceRecords:unknown[]=[], missing:unknown[]=[], notes:string[]=[];
       let gapStart=1;
       for(const {r,s} of slices) {
@@ -717,9 +740,10 @@ export default function createServer({ config }: { config: Config }) {
         if(r.state!=='done'||!r.full_zip_url) {missing.push({...range,reason:r.state});continue;}
         const tag=`p${String(s.start).padStart(5,'0')}-${String(s.end).padStart(5,'0')}`;
         try {
-          const archive=await fetchArchive(r.full_zip_url);
+          const archive=await legacyArchive(r.full_zip_url);
           const sliceDir=`${tag}-${sha256(archive)}`;
-          const retained=await retainArchive(archive,join(outDir,'slices'),sliceDir);
+          root.assertUnchanged();output.assertUnchanged();slicesRoot.assertUnchanged();
+          const retained=await retainArchive(archive,slicesRoot.path,sliceDir,false,slicesRoot);
           const markdown=retained.inventory.entries.filter(e=>/(^|\/)(?:[^/]*_)?full\.md$/.test(e.member.path));
           const structured=retained.inventory.entries.filter(e=>e.member.role==='structured_json').map(e=>({member_id:e.member.member_id,path:e.member.path}));
           sliceRecords.push({requested_range:range,archive_sha256:retained.inventory.sha256,client_data_id:r.data_id,archive_directory:`slices/${sliceDir}`,page_provenance:'unknown',original_page_offset:null,structured_members:structured});
@@ -730,12 +754,14 @@ export default function createServer({ config }: { config: Config }) {
       }
       const suffix=params.overwrite?`-${Date.now()}-${randomBytes(3).toString('hex')}`:'';
       const mdPath=join(outDir,`${name}${suffix}.md`);
-      writeFileSync(mdPath,mdParts.join('\n'),{flag:'wx'});
+      output.writeFile(`${name}${suffix}.md`,mdParts.join('\n'));
       const receipt={schema:'mineru.slice-merge.v1',batch_id:params.batch_id,coverage:missing.length?'partial':'unknown',page_provenance:'unknown',missing_or_unknown_ranges:missing,slices:sliceRecords,notes};
-      writeFileSync(join(outDir,`${name}${suffix}_content.json`),JSON.stringify(receipt,null,2),{flag:'wx'});
+      output.writeFile(`${name}${suffix}_content.json`,JSON.stringify(receipt,null,2));
+      output.sync();root.sync();root.assertUnchanged();output.assertUnchanged();
       const text=`Merged ${mdParts.length}/${slices.length} slices -> ${mdPath}\nCoverage: ${receipt.coverage}; page provenance unknown. Original structured JSON and every archive member retained by slice.\n${notes.join('\n')}`;
       return {structuredContent:{...state,state:missing.length?'partial':state.state,...receipt,output:mdPath},content:[{type:'text',text}]};
-    }
+      } finally {slicesRoot?.close();output?.close();root.close();}
+    })
   );
 
   return server.server;

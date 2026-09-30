@@ -14,5 +14,62 @@ test('download failure budget survives successful status polls and reaches needs
 test('uncertain V1 completion inspects known upload then submits exactly once',async t=>{const f=fixture(t,'v1');f.a.complete=async()=>{throw new ProviderError('transport_failed',true);};f.a.status=async()=>({id:'j',state:'running',outputs:[],missing:[]});const r=await f.ops.submit(f.options);assert.equal(r.state,'waiting_external');assert.equal(r.remote_id,null);const resumed=await f.ops.resume(r.operation_id);assert.equal(resumed.remote_id,'j');assert.equal(f.calls.filter(c=>c==='submit').length,1);});
 test('stale dead-process lock is reclaimed without replaying uncertain submission',async t=>{const f=fixture(t);f.a.prepare=async()=>{throw new ProviderError('transport_failed',true);};const r=await f.ops.submit(f.options);writeFileSync(join(f.config.stateDir,'writer.lock'),JSON.stringify({pid:2147483647,token:'dead-worker'}));const resumed=await f.ops.resume(r.operation_id);assert.equal(resumed.state,'reconciliation_required');});
 test('live-process lock prevents a second concurrent submission',async t=>{const f=fixture(t);let release;const held=new Promise(resolve=>{release=resolve;});f.a.prepare=async()=>{await held;return{id:'u',state:'pending',url:'unused'};};const first=f.ops.submit(f.options);await new Promise(resolve=>setTimeout(resolve,20));await assert.rejects(new Operations(f.config).submit(f.options),{code:'operation_busy'});release();await first;});
-test('independent OS processes share one submission reservation',async t=>{const {spawn}=await import('node:child_process');const {existsSync}=await import('node:fs');const f=fixture(t),signal=join(f.dir,'signal');const start=()=>spawn(process.execPath,['tests/operation-process-fixture.mjs',f.config.stateDir,f.source,f.options.output_dir,signal],{stdio:['ignore','pipe','pipe']});const wait=child=>new Promise(resolve=>{let out='';child.stdout.on('data',s=>out+=s);child.on('exit',code=>resolve({code,result:JSON.parse(out)}));});const first=start(),firstResult=wait(first);for(let i=0;i<100&&!existsSync(signal);i++)await new Promise(resolve=>setTimeout(resolve,5));assert.ok(existsSync(signal));const second=await wait(start());assert.equal(second.result.error,'operation_busy');assert.equal((await firstResult).code,0);const third=await wait(start());assert.equal(third.code,0);assert.equal(third.result.remote_id,'batch');});
+test('independent OS processes share one submission reservation',async t=>{const {spawn}=await import('node:child_process');const {existsSync}=await import('node:fs');const f=fixture(t),signal=join(f.dir,'signal');const start=()=>spawn(process.execPath,['tests/operation-process-fixture.mjs',f.config.stateDir,f.source,f.options.output_dir,signal],{stdio:['ignore','pipe','pipe']});const wait=child=>new Promise(resolve=>{let out='';child.stdout.on('data',s=>out+=s);child.on('exit',code=>resolve({code,result:JSON.parse(out)}));});const first=start(),firstResult=wait(first);for(let i=0;i<2000&&!existsSync(signal);i++)await new Promise(resolve=>setTimeout(resolve,5));assert.ok(existsSync(signal));const second=await wait(start());assert.equal(second.result.error,'operation_busy');writeFileSync(signal+'.release','release');assert.equal((await firstResult).code,0);const third=await wait(start());assert.equal(third.code,0);assert.equal(third.result.remote_id,'batch');});
 test('partial adopted bundle is reused unchanged across finalization restart',async t=>{const f=fixture(t,'v1');f.a.status=async()=>({id:'j',state:'partial',outputs:[{id:'md',format:'markdown'}],missing:['json:not_returned']});f.a.download=async()=>Buffer.from('# retained');const r=await f.ops.submit(f.options),done=await f.ops.resume(r.operation_id);assert.equal(done.state,'succeeded');const path=join(f.config.stateDir,'operations',r.operation_id,'operation.json'),journal=JSON.parse(readFileSync(path));journal.state='waiting_external';journal.phase='finalize';journal.bundle_dir=null;writeFileSync(path,JSON.stringify(journal));f.a.status=async()=>{throw Error('offline');};const resumed=await f.ops.resume(r.operation_id);assert.equal(resumed.bundle_dir,done.bundle_dir);assert.deepEqual(resumed.missing_outputs,['json:not_returned']);});
+
+test('R14 invalid output preflight leaves no operation and corrected request succeeds',async t=>{
+ const f=fixture(t),bad=join(f.dir,'bad-output');writeFileSync(bad,'ordinary file');
+ await assert.rejects(f.ops.submit({...f.options,output_dir:bad}),/real directories/);
+ assert.deepEqual(readdirSync(join(f.config.stateDir,'operations')),[]);assert.deepEqual(f.calls,[]);
+ const result=await f.ops.submit(f.options);assert.equal(result.state,'waiting_external');assert.deepEqual(f.calls,['prepare','transfer']);
+});
+test('R14 adopts only an exact pre-journal source orphan and preserves foreign evidence',async t=>{
+ const f=fixture(t),ops=new Operations({...f.config,checkpoint:name=>{if(name==='source_retained')throw Error('synthetic stop');}});
+ await assert.rejects(ops.submit(f.options),/synthetic stop/);const [operation]=readdirSync(join(f.config.stateDir,'operations'));
+ const dir=join(f.config.stateDir,'operations',operation);writeFileSync(join(dir,'foreign-evidence'),'keep');
+ await assert.rejects(f.ops.submit(f.options),{code:'orphan_recovery_required'});assert.equal(readFileSync(join(dir,'foreign-evidence'),'utf8'),'keep');
+ rmSync(join(dir,'foreign-evidence'));writeFileSync(join(dir,'source.pdf'),'%PDF-1.7 changed');
+ await assert.rejects(f.ops.submit(f.options),{code:'orphan_source_mismatch'});assert.deepEqual(f.calls,[]);
+ writeFileSync(join(dir,'source.pdf'),readFileSync(f.source));assert.equal((await f.ops.submit(f.options)).state,'waiting_external');
+});
+for(const code of ['provider_rejected','output_expired'])test(`R15 ${code}: exhausted sibling preserves typed partial bundle and same-operation enrichment`,async t=>{
+ const f=fixture(t,'v1');let clock=Date.now(),available=false;const ops=new Operations({...f.config,clock:()=>clock});
+ f.a.status=async()=>({id:'j',state:available?'succeeded':'partial',outputs:[{id:'json',fileId:'json-file',format:'json'},{id:'md',format:'markdown'}],missing:[]});
+ const downloads=[];f.a.download=async output=>{downloads.push(output.id);if(output.id==='json'&&!available)throw new ProviderError(code);return Buffer.from(output.id==='md'?'# retained':'{}');};
+ const submitted=await ops.submit(f.options);let result;for(let index=0;index<3;index++){clock+=120000;result=await ops.resume(submitted.operation_id);}
+ assert.equal(result.state,'needs_input',JSON.stringify(result));assert.ok(result.bundle_dir);assert.equal(result.pollable,false);assert.equal(downloads.filter(value=>value==='md').length,1);
+ const oldPath=join(result.bundle_dir,'bundle.json'),oldBytes=readFileSync(oldPath),manifest=JSON.parse(oldBytes);
+ assert.deepEqual(manifest.provider.outputs_unavailable,[{role:'structured_json',format:'json',file_id:'json-file',reason:code==='output_expired'?'expired':'download_failed'}]);
+ assert.equal(manifest.provider_files.length,1);assert.equal((await ops.bundle(submitted.operation_id)).bundle_dir,result.bundle_dir);
+ assert.equal(result.outputs_unavailable[0].cause,code);assert.equal(result.outputs_unavailable[0].retry,'explicit');assert.equal(result.outputs_unavailable[0].attempts,3);
+ assert.ok(result.recovery.next_actions.some(action=>action.action==='bundle'));assert.ok(result.recovery.next_actions.some(action=>action.action==='resume'));
+ const same=await ops.resume(submitted.operation_id);assert.equal(same.bundle_dir,result.bundle_dir);assert.deepEqual(readFileSync(oldPath),oldBytes);
+ available=true;const enriched=await ops.resume(submitted.operation_id);assert.equal(enriched.state,'succeeded',JSON.stringify(enriched));assert.notEqual(enriched.bundle_dir,result.bundle_dir);assert.equal(enriched.operation_id,submitted.operation_id);
+ assert.deepEqual(readFileSync(oldPath),oldBytes);const successor=JSON.parse(readFileSync(join(enriched.bundle_dir,'bundle.json')));assert.deepEqual(successor.provider.outputs_unavailable,[]);assert.equal(successor.provider_files.length,2);
+ const {createHash}=await import('node:crypto');assert.equal(successor.predecessor_manifest_sha256,createHash('sha256').update(oldBytes).digest('hex'));assert.equal(enriched.bundle_history.length,2);assert.equal(downloads.filter(value=>value==='md').length,1);assert.equal(f.calls.filter(value=>value==='submit').length,1);
+});
+test('R04 injected completion and inspection identities cannot claim local-byte binding',async t=>{
+ const f=fixture(t,'v1');f.a.complete=async()=>({id:'foreign',state:'completed',fileId:'foreign-file'});
+ const result=await f.ops.submit(f.options);assert.equal(result.state,'reconciliation_required');assert.equal(result.error.code,'upload_identity_mismatch');assert.equal(f.calls.includes('submit'),false);
+ const g=fixture(t,'v1');g.a.complete=async()=>{throw new ProviderError('transport_failed',true);};g.a.inspectUpload=async()=>({id:'foreign',state:'completed',fileId:'foreign-file'});
+ const pending=await g.ops.submit(g.options),recovered=await g.ops.resume(pending.operation_id);assert.equal(recovered.state,'reconciliation_required');assert.equal(g.calls.includes('submit'),false);
+});
+test('preflight restart verifies retained source before any provider mutation',async t=>{
+ const f=fixture(t),ops=new Operations({...f.config,checkpoint:name=>{if(name==='intent_saved')throw Error('synthetic stop');}});
+ await assert.rejects(ops.submit(f.options),/synthetic stop/);const [operation]=readdirSync(join(f.config.stateDir,'operations'));writeFileSync(join(f.config.stateDir,'operations',operation,'source.pdf'),'%PDF-1.7\nchanged retained source');
+ const result=await f.ops.resume(operation);assert.equal(result.state,'needs_input');assert.equal(result.error.code,'retained_source_changed');assert.deepEqual(f.calls,[]);
+});
+test('reported status source conflict freezes the known operation before any output download',async t=>{
+ const f=fixture(t,'v1');f.a.status=async(_id,_kind,expected)=>{assert.equal(expected.fileId,'f');assert.match(expected.sha256,/^[a-f0-9]{64}$/);throw new ProviderError('input_identity_mismatch');};
+ const submitted=await f.ops.submit(f.options),result=await f.ops.resume(submitted.operation_id);assert.equal(result.state,'reconciliation_required');assert.equal(result.error.code,'input_identity_mismatch');assert.equal(f.calls.includes('download'),false);assert.equal(result.bundle_dir,null);assert.equal(result.recovery.retry_safe,false);
+});
+test('pre-journal interrupted source staging can be rebuilt from the exact request bytes',async t=>{
+ const f=fixture(t),ops=new Operations({...f.config,checkpoint:name=>{if(name==='source_retained')throw Error('synthetic stop');}});
+ await assert.rejects(ops.submit(f.options),/synthetic stop/);const [operation]=readdirSync(join(f.config.stateDir,'operations')),dir=join(f.config.stateDir,'operations',operation);rmSync(join(dir,'source.pdf'));writeFileSync(join(dir,'.retained-12345678-abcd'),readFileSync(f.source).subarray(0,11));
+ const result=await f.ops.submit(f.options);assert.equal(result.state,'waiting_external');assert.deepEqual(readFileSync(join(dir,'source.pdf')),readFileSync(f.source));assert.deepEqual(f.calls,['prepare','transfer']);
+});
+test('recorded bundle receipt detects a changed but internally valid manifest',async t=>{
+ const f=fixture(t),submitted=await f.ops.submit(f.options),done=await f.ops.resume(submitted.operation_id);assert.match(done.bundle_manifest_sha256,/^[a-f0-9]{64}$/);assert.equal(done.bundle_receipts.length,1);
+ const path=join(done.bundle_dir,'bundle.json'),manifest=JSON.parse(readFileSync(path));manifest.created_at='2020-01-01T00:00:00Z';writeFileSync(path,JSON.stringify(manifest));
+ const {validateBundle}=await import('../dist/bundle/validation.js');await validateBundle(done.bundle_dir);await assert.rejects(f.ops.bundle(done.operation_id),{code:'retained_bundle_changed'});
+});
