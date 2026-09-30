@@ -1,3 +1,4 @@
+import {temporaryPrefix} from './temp-dir.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -19,7 +20,7 @@ const percent = value => [...Buffer.from(value)].map(byte => `%${byte.toString(1
 const encodings = [KEY, percent(KEY), percent(percent(KEY)), `bad%escape-${percent(KEY)}`];
 
 function fixture(t, api, override = () => undefined) {
-  const dir = mkdtempSync('/private/tmp/mineru-provider-security-');
+  const dir = mkdtempSync(temporaryPrefix('mineru-provider-security-'));
   t.after(() => rmSync(dir, {recursive: true, force: true}));
   const source = join(dir, 'source.pdf');
   writeFileSync(source, SOURCE);
@@ -294,7 +295,7 @@ test('V1 per-file terminal status preserves typed provider file identity without
 });
 
 test('hosted V1 is still gated before credentials or provider execution', async t => {
-  const dir = mkdtempSync('/private/tmp/mineru-v1-gate-');
+  const dir = mkdtempSync(temporaryPrefix('mineru-v1-gate-'));
   t.after(() => rmSync(dir, {recursive: true, force: true}));
   const source = join(dir, 'source.pdf');
   writeFileSync(source, SOURCE);

@@ -1,3 +1,4 @@
+import {temporaryPrefix} from './temp-dir.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
@@ -9,7 +10,7 @@ import createServer from '../dist/index.js';
 const key='SYNTHETIC_LEGACY_GUARD_KEY';
 const encoded=[...key].map(c=>'%'+c.charCodeAt(0).toString(16)).join('');
 async function setup(t,respond,fetcher=async()=>new Response(null,{status:204})){
- const dir=mkdtempSync('/private/tmp/mineru-legacy-security-');t.after(()=>rmSync(dir,{recursive:true,force:true}));const source=join(dir,'source.pdf');writeFileSync(source,'%PDF-1.7\nlegacy security fixture\n%%EOF');
+ const dir=mkdtempSync(temporaryPrefix('mineru-legacy-security-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));const source=join(dir,'source.pdf');writeFileSync(source,'%PDF-1.7\nlegacy security fixture\n%%EOF');
  const previous=axios.defaults.adapter,previousFetch=globalThis.fetch,calls=[],transfers=[];
  axios.defaults.adapter=async config=>{calls.push(config);assert.equal(config.maxRedirects,config.responseType==='stream'?5:0);const result=await respond(config);return{status:200,statusText:'OK',headers:{},config,...result};};
  globalThis.fetch=async(url,init)=>{transfers.push({url:String(url),init});return fetcher(url,init);};

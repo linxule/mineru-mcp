@@ -1,3 +1,4 @@
+import {temporaryPrefix} from './temp-dir.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,renameSync,symlinkSync,readdirSync,readFileSync,rmSync} from 'node:fs';
@@ -6,7 +7,7 @@ import {pinOutput} from '../dist/bundle/filesystem.js';
 import {sha256} from '../dist/bundle/archive.js';
 
 function fixture(t){
- const base=mkdtempSync('/private/tmp/mineru-filesystem-');t.after(()=>rmSync(base,{recursive:true,force:true}));
+ const base=mkdtempSync(temporaryPrefix('mineru-filesystem-'));t.after(()=>rmSync(base,{recursive:true,force:true}));
  const root=pinOutput(join(base,'output'));t.after(()=>root.close());return{base,root};
 }
 test('pinned output creates, syncs, reads and publishes regular artifacts',t=>{

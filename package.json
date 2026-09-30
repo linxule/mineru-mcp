@@ -1,7 +1,7 @@
 {
   "name": "mineru-mcp",
   "version": "1.2.0",
-  "description": "MinerU document-parsing cloud API as an MCP server and a CLI (mineru-cloud) \u2014 batch by URL, long documents in \u2264200-page slices, 73% token reduction",
+  "description": "MinerU MCP server and mineru-cloud CLI with complete artifact retention, durable operations, and portable PDF bundles",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

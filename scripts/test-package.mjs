@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 
-const temporary = mkdtempSync(join(tmpdir(), 'mineru-package-test-'));
+const temporary = mkdtempSync(join(realpathSync(tmpdir()), 'mineru-package-test-'));
 try {
   const packed = JSON.parse(execFileSync('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], { encoding: 'utf8' }));
   execFileSync('tar', ['-xzf', join(temporary, packed[0].filename), '-C', temporary]);

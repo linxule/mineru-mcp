@@ -1,3 +1,4 @@
+import {temporaryPrefix} from './temp-dir.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -7,7 +8,7 @@ import {join} from 'node:path';
 const fixture=new URL('./operation-process-fixture.mjs',import.meta.url);
 function run(args){const child=spawn(process.execPath,[fixture.pathname,...args],{stdio:['ignore','pipe','pipe']});let out='',err='';child.stdout.on('data',value=>out+=value);child.stderr.on('data',value=>err+=value);const done=once(child,'exit').then(([code,signal])=>({code,signal,out,err}));return{child,done};}
 for(const boundary of ['source_retained','intent_saved','allocation_inflight','outputs_retained','bundle_adopted'])test(`SIGKILL at ${boundary} restarts from real durable evidence`,{timeout:15000},async t=>{
- const dir=mkdtempSync('/private/tmp/mineru-checkpoint-');t.after(()=>rmSync(dir,{recursive:true,force:true}));const source=join(dir,'source.pdf'),root=join(dir,'journal'),output=join(dir,'output'),signal=join(dir,'checkpoint');writeFileSync(source,'%PDF-1.7\nprocess crash source\n%%EOF');
+ const dir=mkdtempSync(temporaryPrefix('mineru-checkpoint-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));const source=join(dir,'source.pdf'),root=join(dir,'journal'),output=join(dir,'output'),signal=join(dir,'checkpoint');writeFileSync(source,'%PDF-1.7\nprocess crash source\n%%EOF');
  const first=run([root,source,output,signal,'crash',boundary]);t.after(()=>{if(first.child.exitCode===null&&!first.child.killed)first.child.kill('SIGKILL');});
  for(let i=0;i<1000&&!existsSync(signal);i++){if(first.child.exitCode!==null)assert.fail(JSON.stringify(await first.done));await new Promise(resolve=>setTimeout(resolve,5));}
  assert.ok(existsSync(signal),'checkpoint reached');const checkpoint=JSON.parse(readFileSync(signal));first.child.kill('SIGKILL');assert.equal((await first.done).signal,'SIGKILL');

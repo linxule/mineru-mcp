@@ -1,3 +1,4 @@
+import {temporaryPrefix} from './temp-dir.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,renameSync,readFileSync,readdirSync,rmSync,symlinkSync,writeFileSync} from 'node:fs';
@@ -8,22 +9,22 @@ import axios from 'axios';
 import {lifecycle} from '../dist/bundle/lifecycle.js';
 import {zip} from './zip-fixture.mjs';
 test('download retention includes unknown members and replay checks archive bytes',async t=>{
- const dir=mkdtempSync('/private/tmp/mineru-retain-');t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const dir=mkdtempSync(temporaryPrefix('mineru-retain-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
  const raw=zip([{name:'full.md',body:'# main'},{name:'model.json',body:'{"x":1}'},{name:'unknown.bin',body:'opaque'}]);
  const r=await retainArchive(raw,dir,'paper');assert.deepEqual(readFileSync(join(r.directory,'archives',r.inventory.sha256+'.zip')),raw);assert.equal(r.inventory.members.length,3);assert.equal((await retainArchive(raw,dir,'paper')).skipped,true);
  writeFileSync(join(r.directory,'archives',r.inventory.sha256+'.zip'),'changed');await assert.rejects(()=>retainArchive(raw,dir,'paper'),/different or unverified/);
 });
 test('ambiguous primary files are retained without selecting first; quarantine invalid ZIP',async t=>{
- const dir=mkdtempSync('/private/tmp/mineru-retain-');t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const dir=mkdtempSync(temporaryPrefix('mineru-retain-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
  const r=await retainArchive(zip([{name:'a/full.md',body:'a'},{name:'b/full.md',body:'b'}]),dir,'paper');assert.equal(readdirSync(r.directory).includes('paper.md'),false);assert.equal(r.warnings[0].code,'ambiguous_markdown');
  const bad=zip([{name:'../escape',body:'x'}]);await assert.rejects(()=>retainArchive(bad,dir,'bad'),/quarantined/);assert.equal(readdirSync(dir).includes('bad'),false);
  const q=join(dir,'quarantine',readdirSync(join(dir,'quarantine'))[0]);assert.deepEqual(readFileSync(q),bad);
 });
 test('output symlinks rejected; no string prefix containment',async t=>{
- const dir=mkdtempSync('/private/tmp/mineru-retain-');t.after(()=>rmSync(dir,{recursive:true,force:true}));symlinkSync(dir,join(dir,'link'));await assert.rejects(()=>retainArchive(zip([]),join(dir,'link'),'paper'),/symlinks/);
+ const dir=mkdtempSync(temporaryPrefix('mineru-retain-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));symlinkSync(dir,join(dir,'link'));await assert.rejects(()=>retainArchive(zip([]),join(dir,'link'),'paper'),/symlinks/);
 });
 for(const rejected of [false,true])test(`root replacement during asynchronous ZIP ${rejected?'rejection':'inspection'} cannot redirect retention`,async t=>{
- const base=mkdtempSync('/private/tmp/mineru-retain-race-');t.after(()=>rmSync(base,{recursive:true,force:true}));
+ const base=mkdtempSync(temporaryPrefix('mineru-retain-race-'));t.after(()=>rmSync(base,{recursive:true,force:true}));
  const output=join(base,'output'),outside=join(base,'outside');mkdirSync(outside);
  const raw=zip([{name:rejected?'../escape':'full.md',body:'synthetic bytes',deflate:true}]);
  const pending=retainArchive(raw,output,'paper');
@@ -32,14 +33,14 @@ for(const rejected of [false,true])test(`root replacement during asynchronous ZI
  assert.deepEqual(readdirSync(join(base,'original-output')),[]);
 });
 test('ancestor replacement during streamed inspection cannot redirect stage writes',async t=>{
- const base=mkdtempSync('/private/tmp/mineru-retain-parent-race-');t.after(()=>rmSync(base,{recursive:true,force:true}));
+ const base=mkdtempSync(temporaryPrefix('mineru-retain-parent-race-'));t.after(()=>rmSync(base,{recursive:true,force:true}));
  const parent=join(base,'parent'),output=join(parent,'output'),outside=join(base,'outside');mkdirSync(outside);mkdirSync(join(outside,'output'));
  const pending=retainArchive(zip([{name:'full.md',body:'synthetic',deflate:true}]),output,'paper');
  renameSync(parent,join(base,'original-parent'));symlinkSync(outside,parent);
  await assert.rejects(pending,/replaced|symlinks/);assert.deepEqual(readdirSync(join(outside,'output')),[]);
 });
 test('replay refuses a symlinked archive parent and overwrite preserves prior bytes',async t=>{
- const base=mkdtempSync('/private/tmp/mineru-retain-replay-');t.after(()=>rmSync(base,{recursive:true,force:true}));
+ const base=mkdtempSync(temporaryPrefix('mineru-retain-replay-'));t.after(()=>rmSync(base,{recursive:true,force:true}));
  const first=zip([{name:'full.md',body:'old'},{name:'images/x.png',body:'old image'}]),second=zip([{name:'full.md',body:'new'}]);
  const made=await retainArchive(first,base,'paper');assert.equal(readFileSync(join(made.directory,'images/x.png'),'utf8'),'old image');
  await retainArchive(second,base,'paper',true);

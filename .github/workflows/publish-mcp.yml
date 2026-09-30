@@ -29,12 +29,38 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  resolve:
+    name: Resolve checkout
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.registry_tag || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.registry_tag) || github.ref }}
+
+      - name: Pin checkout identity
+        id: source
+        run: |
+          SOURCE_SHA="$(git rev-parse --verify HEAD)"
+          printf 'sha=%s\n' "$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: resolve
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -43,7 +69,6 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-          registry-url: "https://registry.npmjs.org"
 
       - run: bun install --frozen-lockfile
 
@@ -60,18 +85,72 @@ jobs:
       - name: Verify fresh package install on Node 18
         run: bun run test:package
 
+  # Keep the existing required-check name; failed/cancelled matrix jobs must
+  # fail this gate instead of making a skipped downstream job look successful.
+  ci:
+    needs: [resolve, verify]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require every verification job to pass
+        env:
+          SOURCE_RESULT: ${{ needs.resolve.result }}
+          VERIFICATION_RESULT: ${{ needs.verify.result }}
+        run: |
+          test "$SOURCE_RESULT" = success
+          test "$VERIFICATION_RESULT" = success
+
+  publish:
+    needs: [resolve, verify, ci]
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Guard — tag must match package.json version
+      - run: bun install --frozen-lockfile
+
+      - run: bun run build # create the verified package's dist files
+
+      - name: Guard — release versions must match
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         env:
           RELEASE_TAG: ${{ inputs.registry_tag || github.ref_name }}
         run: |
-          PKG="v$(node -p "require('./package.json').version")"
-          [ "$PKG" = "$RELEASE_TAG" ] || { echo "Tag $RELEASE_TAG != package $PKG"; exit 1; }
+          node <<'NODE'
+          const { readFileSync } = require('node:fs');
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const server = JSON.parse(readFileSync('server.json', 'utf8'));
+          const fail = message => { console.error(message); process.exit(1); };
+          if (process.env.RELEASE_TAG !== `v${pkg.version}`) {
+            fail(`Tag ${process.env.RELEASE_TAG} != package v${pkg.version}`);
+          }
+          if (server.version !== pkg.version) {
+            fail(`server.json version ${server.version} != package ${pkg.version}`);
+          }
+          const registrations = Array.isArray(server.packages)
+            ? server.packages.filter(entry => entry.registryType === 'npm' && entry.identifier === pkg.name)
+            : [];
+          if (!registrations.length) fail(`server.json has no npm registration for ${pkg.name}`);
+          for (const entry of registrations) {
+            if (entry.version !== pkg.version) {
+              fail(`server.json npm version ${entry.version} != package ${pkg.version}`);
+            }
+          }
+          console.log(`Release versions match ${process.env.RELEASE_TAG}`);
+          NODE
 
       - name: Publish to npm (tags only, OIDC Trusted Publishing)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')

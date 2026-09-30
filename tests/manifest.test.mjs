@@ -1,3 +1,4 @@
+import {temporaryPrefix} from './temp-dir.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, readdir, symlink, mkdir, rm } from 'node:fs/promises';
@@ -20,7 +21,7 @@ function zip(files) {
   return Buffer.concat([...local, cd, end]);
 }
 async function fixture(t, files = [['full.md', '# title'], ['nested/opaque.bin', '\u0000raw']]) {
-  const dir = await mkdtemp('/private/tmp/mineru-manifest-test-');
+  const dir = await mkdtemp(temporaryPrefix('mineru-manifest-test-'));
   t.after(() => rm(dir, {recursive:true, force:true}));
   const source = join(dir, 'source.pdf'), archive = join(dir, 'provider.zip'), output = join(dir, 'out');
   const pdf = Buffer.from('%PDF-1.7\nexact original\n%%EOF\n'), raw = zip(files);

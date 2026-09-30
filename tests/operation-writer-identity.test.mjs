@@ -1,3 +1,4 @@
+import {temporaryPrefix} from './temp-dir.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
@@ -6,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {createOperationBundle} from '../dist/bundle/operation_writer.js';
 import {validateBundle} from '../dist/bundle/validation.js';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
-function setup(t){const dir=mkdtempSync('/private/tmp/mineru-writer-identity-');t.after(()=>rmSync(dir,{recursive:true,force:true}));const bytes=Buffer.from('%PDF-1.7\nidentity fixture\n%%EOF'),source=join(dir,'source.pdf'),md=Buffer.from('# evidence'),mdPath=join(dir,'markdown');writeFileSync(source,bytes);writeFileSync(mdPath,md);return{dir,bytes,input:{source,outputs:[{id:'md-file',format:'markdown',path:mdPath,sha256:sha(md),size:md.length}],output:join(dir,'out'),provider:{api:'v1',endpoint:'https://api.example/api/v1',kind:'job',id:'job',binding:'uploaded_exact_bytes',request:{sha256:sha(bytes),size:bytes.length,filename:'source.pdf',formats:['markdown'],tier:'standard'},terminal:'succeeded',missing:[]}}};}
+function setup(t){const dir=mkdtempSync(temporaryPrefix('mineru-writer-identity-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));const bytes=Buffer.from('%PDF-1.7\nidentity fixture\n%%EOF'),source=join(dir,'source.pdf'),md=Buffer.from('# evidence'),mdPath=join(dir,'markdown');writeFileSync(source,bytes);writeFileSync(mdPath,md);return{dir,bytes,input:{source,outputs:[{id:'md-file',format:'markdown',path:mdPath,sha256:sha(md),size:md.length}],output:join(dir,'out'),provider:{api:'v1',endpoint:'https://api.example/api/v1',kind:'job',id:'job',binding:'uploaded_exact_bytes',request:{sha256:sha(bytes),size:bytes.length,filename:'source.pdf',formats:['markdown'],tier:'standard'},terminal:'succeeded',missing:[]}}};}
 test('existing deterministic destination must match intended source, provider, request and output identity',async t=>{
  const f=setup(t),created=await createOperationBundle(f.input),path=join(created.bundle_dir,'bundle.json'),original=readFileSync(path);
  const changes=[

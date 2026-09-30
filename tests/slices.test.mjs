@@ -1,3 +1,4 @@
+import {temporaryPrefix} from './temp-dir.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import axios from 'axios';
@@ -9,7 +10,7 @@ import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import createServer from '../dist/index.js';
 import {zip} from './zip-fixture.mjs';
 async function setup(t) {
- const dir=mkdtempSync('/private/tmp/mineru-slices-');t.after(()=>rmSync(dir,{recursive:true,force:true}));
+ const dir=mkdtempSync(temporaryPrefix('mineru-slices-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
  let results=[],archives={},downloadHook;const previous=axios.defaults.adapter;
  axios.defaults.adapter=async config=>{
   const archive=config.url.startsWith('https://mock-archive/');
@@ -38,7 +39,7 @@ test('successor merges retain immutable slice image links and never invent origi
  const second=await run('new',true);assert.equal(second.isError,undefined);assert.equal(readFileSync(join(f.dir,'book',relative),'utf8'),'old');assert.equal(second.structuredContent.coverage,'unknown');
 });
 for(const nested of [false,true])test(`merge rejects ${nested?'slice parent':'output root'} replacement while archive fetch is pending`,async t=>{
- const f=await setup(t),outside=mkdtempSync('/private/tmp/mineru-slices-outside-'),original=nested?join(f.dir,'original-book'):`${f.dir}-original`;
+ const f=await setup(t),outside=mkdtempSync(temporaryPrefix('mineru-slices-outside-')),original=nested?join(f.dir,'original-book'):`${f.dir}-original`;
  t.after(()=>{rmSync(outside,{recursive:true,force:true});if(!nested)rmSync(original,{recursive:true,force:true});});
  if(nested)mkdirSync(join(outside,'slices'));
  const url='https://mock-archive/a',raw=zip([{name:'full.md',body:'# Chapter',deflate:true}]);

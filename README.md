@@ -1,6 +1,12 @@
 # mineru-mcp
 
-MCP server for [MinerU](https://mineru.net) document parsing API — extract text, tables, and formulas from PDFs, DOCs, and images.
+MCP server and `mineru-cloud` CLI for the [MinerU](https://mineru.net) document
+parsing API, with complete artifact retention, durable operations, and portable
+PDF bundles.
+
+Durable operations and bundles in this checkout are unreleased. The published
+`mineru-mcp@1.2.0` does not include them; npm users need a release containing these
+changes.
 
 ## Features
 
@@ -30,7 +36,9 @@ MCP server for [MinerU](https://mineru.net) document parsing API — extract tex
 
 ## Installation
 
-Requires [Node.js](https://nodejs.org/) 18+ and a [MinerU API key](https://mineru.net).
+Use [Node.js](https://nodejs.org/) 24 for new installations. Node.js 18+ remains
+supported for compatibility. Cloud commands require a [MinerU API key](https://mineru.net);
+offline bundle creation requires no credentials.
 
 Local output retention, bundles, and durable operations require macOS or Linux.
 These paths use directory-bound filesystem operations and fail closed on Windows;
@@ -492,7 +500,7 @@ inputs and document-processing behavior are unchanged.
 
 ## Development
 
-Use Bun 1.4.2 and Node.js 24 for the build and CI checks:
+Use Bun 1.4.2 and the recommended Node.js 24 runtime for development:
 
 ```sh
 bun install --frozen-lockfile
@@ -502,24 +510,39 @@ bun run test
 bun run test:package
 ```
 
-The runtime tests exercise the built stdio and HTTP servers against a local
-MinerU API double. They check tool schemas, request mapping, pagination defaults,
-provider errors, malformed HTTP requests, and session termination without real
-credentials or API calls. They do not verify live parsing or file extraction.
-Dependabot updates the Bun manifest and lockfile together. CI audits dependencies
-and runs the build and runtime tests before publishing on version tags.
+The tests use synthetic fixtures and local MinerU API doubles. They exercise the
+built stdio and HTTP servers, durable operation recovery, exact artifact retention,
+bundle identity, and filesystem containment without real credentials or provider
+calls. Temporary fixtures use the canonical system temp directory on macOS and
+Linux. These checks do not establish live-provider parsing accuracy.
+
+CI audits dependencies, builds, and runs the full suite on both macOS and Linux
+with Node.js 24. Each platform also installs a fresh packed package without the
+repository lock and tests it on Node.js 18. This consumer-install gate preserves
+the Node 18 compatibility target. Dependabot updates the Bun manifest and lockfile
+together.
 
 ### Publishing
 
-Bump `package.json` and both version fields in `server.json`, complete the checks
-above, merge, then push the matching `vX.Y.Z` tag. CI publishes to npm, waits for
-the exact package version to become available, then registers it with the MCP Registry.
+Bump `package.json`, the top-level version in `server.json`, and its npm package
+versions, complete the checks above, merge, then push the matching `vX.Y.Z` tag.
+Before publication, CI requires the tag and all of these versions to match.
+The existing `ci` check requires
+every macOS/Linux verification job to pass before the separate publishing job
+can run. CI resolves the requested checkout once, then verifies and publishes
+that exact commit. Publication uses Node.js 24 and GitHub OIDC: it publishes to
+npm, waits for the exact package version to become available, then registers it with the
+MCP Registry.
 If registry registration fails after npm succeeds, retry only registration using
 the existing immutable tag:
 
 ```sh
-gh workflow run publish-mcp.yml --ref main -f registry_tag=v1.1.6
+gh workflow run publish-mcp.yml --ref main -f registry_tag=vX.Y.Z
 ```
+
+Replace `vX.Y.Z` with the already-published tag. Recovery resolves
+`refs/tags/vX.Y.Z`, verifies that tag's checkout, skips npm publication, and
+retries only MCP Registry registration.
 
 ## License
 
