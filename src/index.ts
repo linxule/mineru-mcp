@@ -32,7 +32,7 @@ export const configSchema = z.object({
     .enum(["pipeline", "vlm"])
     .optional()
     .default("pipeline")
-    .describe("Default model: pipeline (fast) or vlm (90% accuracy)"),
+    .describe("Default model: pipeline or vlm"),
 });
 
 type Config = z.infer<typeof configSchema>;
@@ -93,7 +93,7 @@ interface BatchStatus {
   }>;
 }
 
-// Long-document slicing (MinerU rejects files >200 pages, but accepts page_ranges on them)
+// Long-document slicing with a locally bounded slice size.
 const MAX_SLICE_PAGES = 200;
 
 function planSlices(totalPages: number, sliceSize: number): Array<[number, number]> {
@@ -276,7 +276,7 @@ export default function createServer({ config }: { config: Config }) {
       model: z
         .enum(["pipeline", "vlm"])
         .optional()
-        .describe("pipeline=fast, vlm=90% accuracy"),
+        .describe("Model: pipeline or vlm"),
       pages: z.string().optional().describe("Page range: 1-10,15 or 2--2"),
       ocr: z.boolean().optional().describe("Enable OCR (pipeline only)"),
       formula: z.boolean().optional().describe("Formula recognition"),
@@ -344,13 +344,13 @@ export default function createServer({ config }: { config: Config }) {
   // Tool 3: mineru_batch
   server.tool(
     "mineru_batch",
-    "Parse multiple URLs in one batch (max 200). Preferred over mineru_upload_batch — faster and more reliable. Use public URLs (arXiv, SSRN, publisher sites) when available.",
+    "Parse multiple public URLs in one batch. The local guard allows up to 200 URLs. Returns batch_id for status checks.",
     {
       urls: z.union([z.array(z.string()), z.string()]).describe("Array of document URLs, or a single URL string"),
       model: z
         .enum(["pipeline", "vlm"])
         .optional()
-        .describe("pipeline=fast, vlm=90% accuracy"),
+        .describe("Model: pipeline or vlm"),
       ocr: z.boolean().optional().describe("Enable OCR (pipeline only)"),
       formula: z.boolean().optional().describe("Formula recognition"),
       table: z.boolean().optional().describe("Table recognition"),
@@ -437,14 +437,14 @@ export default function createServer({ config }: { config: Config }) {
   // Tool 5: mineru_upload_batch
   server.tool(
     "mineru_upload_batch",
-    "Upload local files for batch parsing. SLOW: uploads can take minutes and may timeout. Prefer mineru_batch with public URLs (arXiv, SSRN, publisher sites) when available — it's faster and more reliable. Only use this for files not available online.",
+    "Upload local files for batch parsing. Returns batch_id for status checks.",
     {
       directory: z.string().optional().describe("Directory path containing PDF/DOC/PPT files"),
       files: z.union([z.array(z.string()), z.string()]).optional().describe("Array of absolute file paths, or a single path string"),
       model: z
         .enum(["pipeline", "vlm"])
         .optional()
-        .describe("pipeline=fast, vlm=90% accuracy"),
+        .describe("Model: pipeline or vlm"),
       formula: z.boolean().optional().describe("Formula recognition"),
       table: z.boolean().optional().describe("Table recognition"),
       language: z.string().optional().describe("Language code: ch, en, etc"),
@@ -614,17 +614,17 @@ export default function createServer({ config }: { config: Config }) {
     })
   );
 
-  // Tool 7: mineru_parse_long — one document > 200 pages, submitted as ≤200-page slices in one batch
+  // Tool 7: mineru_parse_long — bounded page-range slices in one batch
   server.tool(
     "mineru_parse_long",
-    "Parse a document LONGER than 200 pages (MinerU's per-file cap) by submitting it as one batch of ≤200-page slices with page_ranges. Give total_pages (from `mdls -name kMDItemNumberOfPages`, `pdfinfo`, or the viewer) — it is auto-detected only for local files on macOS. Returns a batch_id; poll with mineru_batch_status, then stitch with mineru_merge_slices. Files ≤200 pages: use mineru_parse instead.",
+    "Submit a document as one batch of page-range slices, with a local limit of 200 pages per requested slice. Give total_pages (from `mdls -name kMDItemNumberOfPages`, `pdfinfo`, or the viewer) — it is auto-detected only for local files on macOS. Returns a batch_id; poll with mineru_batch_status, then stitch with mineru_merge_slices.",
     {
       url: z.string().optional().describe("Public document URL (preferred)"),
-      file: z.string().optional().describe("Absolute local file path (uploaded once per slice — slow for big files)"),
+      file: z.string().optional().describe("Absolute local file path (uploaded once per slice)"),
       total_pages: z.number().int().positive().optional().describe("Total page count of the document"),
       slice_size: z.number().int().positive().max(MAX_SLICE_PAGES).optional().default(MAX_SLICE_PAGES).describe("Pages per slice (≤200)"),
       name: z.string().optional().describe("Output name for the merged result (default: from URL/file name)"),
-      model: z.enum(["pipeline", "vlm"]).optional().describe("pipeline=fast, vlm=90% accuracy"),
+      model: z.enum(["pipeline", "vlm"]).optional().describe("Model: pipeline or vlm"),
       ocr: z.boolean().optional().describe("Enable OCR (pipeline only)"),
       formula: z.boolean().optional().describe("Formula recognition"),
       table: z.boolean().optional().describe("Table recognition"),

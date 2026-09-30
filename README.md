@@ -10,16 +10,15 @@ changes.
 
 ## Features
 
-- **VLM model** — 90%+ accuracy for complex documents
-- **Pipeline model** — Fast processing for simple documents
+- **VLM model** — Document parsing with a vision-language model
+- **Pipeline model** — Document parsing with the pipeline model
 - **Local file upload** — Upload files from disk for batch parsing
-- **Batch processing** — Parse up to 200 documents at once
+- **Batch processing** — Submit multiple documents in one request
 - **Download & rename** — Extract markdown with original filenames
 - **Page ranges** — Extract specific pages only
-- **Long documents** — MinerU caps files at 200 pages; `mineru_parse_long` slices and `mineru_merge_slices` stitches
-- **CLI twin** — `mineru-cloud` runs the same tools from a shell (no MCP context cost)
-- **109 language OCR** support
-- **Optimized for Claude Code** — 73% token reduction vs alternatives
+- **Long documents** — `mineru_parse_long` submits page-range slices and `mineru_merge_slices` stitches
+- **CLI twin** — `mineru-cloud` calls the same tools from a shell
+- **Language and OCR options** — Select a language and enable OCR for the pipeline model
 
 ## Tools
 
@@ -27,12 +26,18 @@ changes.
 |------|-------------|
 | `mineru_parse` | Parse a document URL |
 | `mineru_status` | Check task progress, get download URL |
-| `mineru_batch` | Parse multiple URLs (max 200) |
+| `mineru_batch` | Parse multiple URLs |
 | `mineru_batch_status` | Get batch results with pagination |
 | `mineru_upload_batch` | Upload local files for batch parsing |
 | `mineru_download_results` | Retain complete archives, inventory all members, and create named compatibility copies |
-| `mineru_parse_long` | Document >200 pages: one batch of ≤200-page `page_ranges` slices |
+| `mineru_parse_long` | Submit a long document as a batch of page-range slices |
 | `mineru_merge_slices` | Join available Markdown and retain immutable slice archives with explicit unknown page provenance |
+| `mineru_capabilities` | Read locally known capabilities; explicit refresh performs discovery |
+| `mineru_submit` | Submit with a durable local journal and duplicate-request protection |
+| `mineru_operation_status` | Read a recorded operation; explicit refresh checks remote status |
+| `mineru_resume` | Continue safe recorded checkpoints |
+| `mineru_cancel` | Stop local processing; remote cancellation is unsupported |
+| `mineru_bundle` | Validate and return an operation's retained bundle |
 
 ## Installation
 
@@ -246,7 +251,7 @@ mineru-cloud status --task-id <id> --wait            # --wait polls every 10s un
 mineru-cloud batch --urls '["https://…/a.pdf","https://…/b.pdf"]'
 mineru-cloud download-results --batch-id <id> --output-dir ./papers --wait
 
-# > 200 pages: slice, then stitch
+# Long document: slice, then stitch
 mineru-cloud parse-long --url https://…/book.pdf --total-pages 520 --name book
 mineru-cloud merge-slices --batch-id <id> --output-dir ./books --wait
 ```
@@ -394,7 +399,7 @@ Get your API key at [mineru.net](https://mineru.net)
 ```typescript
 mineru_parse({
   url: "https://example.com/document.pdf",
-  model: "vlm",        // optional: "pipeline" (default) or "vlm" (90% accuracy)
+  model: "vlm",        // optional: "pipeline" (default) or "vlm"
   pages: "1-10,15",    // optional: page ranges
   ocr: true,           // optional: enable OCR (pipeline only)
   formula: true,       // optional: formula recognition
@@ -475,11 +480,14 @@ mineru_upload_batch → mineru_batch_status (poll) → mineru_download_results
 - PDF, DOC, DOCX, PPT, PPTX
 - PNG, JPG, JPEG
 
-## Limits
+## Local limits and provider evidence
 
-- Single file: 200MB max, 200 pages max (use `pages` to parse a longer file in ≤200-page slices — verified 2026-09-16)
-- Daily quota: 1000 pages at high priority (excess is deprioritized, not rejected)
-- Batch: max 200 files per request
+Legacy batch commands enforce at most 200 items; legacy local uploads reject
+files over 200 MiB. `parse-long` limits each requested slice to 200 pages. These
+are current implementation guards, not verification of a provider account's
+current limits, quota, queue priority, or supported plan. Check those separately
+when a cloud task is authorized. This checkout's synthetic tests do not measure
+hosted parsing accuracy, speed, or language coverage.
 
 ## Release 1.1.6
 
@@ -500,6 +508,9 @@ inputs and document-processing behavior are unchanged.
 
 ## Development
 
+Read [AGENTS.md](AGENTS.md) for the canonical contributor handoff, task authority,
+recovery invariants and paired Scholia fixture/integration checks.
+
 Use Bun 1.4.2 and the recommended Node.js 24 runtime for development:
 
 ```sh
@@ -516,23 +527,25 @@ bundle identity, and filesystem containment without real credentials or provider
 calls. Temporary fixtures use the canonical system temp directory on macOS and
 Linux. These checks do not establish live-provider parsing accuracy.
 
-CI audits dependencies, builds, and runs the full suite on both macOS and Linux
+On PRs to `main`, version-tag pushes and manual registry recovery, CI audits
+dependencies, builds, and runs the full suite on both macOS and Linux
 with Node.js 24. Each platform also installs a fresh packed package without the
 repository lock and tests it on Node.js 18. This consumer-install gate preserves
 the Node 18 compatibility target. Dependabot updates the Bun manifest and lockfile
-together.
+together. Ordinary pushes to `main` do not trigger this workflow.
 
 ### Publishing
 
-Bump `package.json`, the top-level version in `server.json`, and its npm package
+With explicit release authorization, bump `package.json`, the top-level version
+in `server.json`, and its matching npm package
 versions, complete the checks above, merge, then push the matching `vX.Y.Z` tag.
 Before publication, CI requires the tag and all of these versions to match.
-The existing `ci` check requires
-every macOS/Linux verification job to pass before the separate publishing job
+The existing `ci` check requires every macOS/Linux verification job to pass
+before the separate publishing job
 can run. CI resolves the requested checkout once, then verifies and publishes
 that exact commit. Publication uses Node.js 24 and GitHub OIDC: it publishes to
-npm, waits for the exact package version to become available, then registers it with the
-MCP Registry.
+npm, waits for the exact package version to become available, then registers
+it with the MCP Registry.
 If registry registration fails after npm succeeds, retry only registration using
 the existing immutable tag:
 
