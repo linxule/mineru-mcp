@@ -1,0 +1,239 @@
+{
+  "profile": "2.5.4-flat-v1",
+  "cases": [
+    {
+      "name": "flat-positive",
+      "payload": "flat-positive.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "expected": "flat-positive.expected.json",
+      "result_sha256": "27351e63b9e6b03ae6357c04f8e29144bc25d7453f860981fc211407cfc618b4"
+    },
+    {
+      "name": "archive-member",
+      "payload": "archive-member.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "expected": "archive-member.expected.json",
+      "result_sha256": "97d632027dec1ee25ce0b2823c71edec97c9c73e4a9ce9a93472109a20491e89"
+    },
+    {
+      "name": "negative-page",
+      "payload": "negative-page.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "invalid_page_index"
+    },
+    {
+      "name": "boolean-page",
+      "payload": "boolean-page.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "invalid_page_index"
+    },
+    {
+      "name": "outside-page",
+      "payload": "outside-page.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "invalid_page_index"
+    },
+    {
+      "name": "decimal-page",
+      "payload": "decimal-page.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "invalid_page_index"
+    },
+    {
+      "name": "missing-page",
+      "payload": "missing-page.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "invalid_page_index"
+    },
+    {
+      "name": "grouped-v2",
+      "payload": "grouped-v2.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "unsupported_content_schema"
+    },
+    {
+      "name": "middle-json",
+      "payload": "middle-json.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "unsupported_content_schema"
+    },
+    {
+      "name": "future-type",
+      "payload": "future-type.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "unsupported_content_schema"
+    },
+    {
+      "name": "empty-list",
+      "payload": "empty-list.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "unsupported_content_schema"
+    },
+    {
+      "name": "bad-text",
+      "payload": "bad-text.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "unsupported_content_schema"
+    },
+    {
+      "name": "duplicate-key",
+      "payload": "duplicate-key.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes"
+      },
+      "error": "unsupported_content_schema"
+    },
+    {
+      "name": "unverified-binding",
+      "payload": "unverified-binding.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "caller_asserted"
+      },
+      "error": "page_mapping_binding_unverified"
+    },
+    {
+      "name": "unknown-binding",
+      "payload": "unknown-binding.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "unknown"
+      },
+      "error": "page_mapping_binding_unverified"
+    },
+    {
+      "name": "range-no-offset",
+      "payload": "range-no-offset.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes",
+        "requested_scope": "ranges",
+        "requested_ranges": [
+          {
+            "start": 2,
+            "end": 3
+          }
+        ]
+      },
+      "error": "unsupported_page_scope"
+    },
+    {
+      "name": "physical-slice",
+      "payload": "physical-slice.json",
+      "context": {
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "source_page_count": 3,
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "source_binding": "uploaded_exact_bytes",
+        "slice_info": {
+          "input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "original_start_page": 2
+        }
+      },
+      "error": "unsupported_page_scope"
+    }
+  ]
+}

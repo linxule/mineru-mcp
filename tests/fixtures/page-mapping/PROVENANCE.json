@@ -1,0 +1,44 @@
+{
+  "upstream_commit": "61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99",
+  "retrieved_on": "2026-09-30",
+  "validation": "source-grounded synthetic fixtures; no live provider parse",
+  "cloud_link": "https://mineru.net/doc/docs/index_en/",
+  "sources": [
+    {
+      "url": "https://github.com/opendatalab/MinerU/blob/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/docs/en/reference/output_files.md",
+      "sha256": "6c52c6ef79ccc8827ee97df8aedd83dc1f4e9086f3919438c26a3e9bcf4adeb9",
+      "lines": [
+        350,
+        379
+      ],
+      "basis": "Flat content list; page_idx is zero-based; bbox uses 0-1000 units but rotation is absent."
+    },
+    {
+      "url": "https://github.com/opendatalab/MinerU/blob/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/backend/pipeline/pipeline_middle_json_mkcontent.py",
+      "sha256": "c5658e16660bea107c3cbaf1405c9127bd9d0264c80c7b6a89657e58551f478e",
+      "lines": [
+        191,
+        289
+      ],
+      "basis": "Pipeline emits supported content fields and copies page_idx from page metadata."
+    },
+    {
+      "url": "https://github.com/opendatalab/MinerU/blob/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/backend/vlm/vlm_middle_json_mkcontent.py",
+      "sha256": "21ef795e9c13822ec49a275cc04fec72f5cc4508c4db101253f466fc5f043fe2",
+      "lines": [
+        140,
+        263
+      ],
+      "basis": "VLM emits additional text/list/code types while preserving page_idx."
+    },
+    {
+      "url": "https://github.com/opendatalab/MinerU/blob/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/utils/enum_class.py",
+      "sha256": "df8955b2378060b85aed0fb5ab163db1e24574ae9f8ee1298577d81626e08446",
+      "lines": [
+        1,
+        48
+      ],
+      "basis": "Exact emitted type spellings."
+    }
+  ]
+}

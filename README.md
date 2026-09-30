@@ -287,11 +287,60 @@ receipt with archive references, rather than a flattened array with assumed page
 offsets. Missing Markdown or failed slices produce an explicit partial result;
 otherwise coverage and original PDF page provenance remain unknown.
 
-These changes are validated with local fixtures and mocked providers. Standalone
-submission reservation, persisted upload recovery, and lost-ID reconciliation are
-not implemented. A process interruption after submission may leave an uncertain
-remote operation; do not assume that rerunning a submit command is safe. No new
-live provider capabilities or validated PDF page mappings are claimed here.
+### Durable standalone operations
+
+The 6 additional commands share their implementation with MCP:
+
+```sh
+mineru-cloud capabilities --api v4 --json
+mineru-cloud submit --file /absolute/source.pdf --api v4 --model vlm --output-dir /absolute/results --json
+mineru-cloud operation-status --operation-id ID --json
+mineru-cloud resume --operation-id ID --wait --wait-timeout-seconds 1800 --json
+mineru-cloud cancel --operation-id ID --json
+mineru-cloud bundle --operation-id ID --json
+```
+
+`MINERU_STATE_DIR` selects the journal root; the default is
+`~/.local/share/mineru-cloud`. Keep that directory for recovery. The journal
+retains source bytes, request fingerprints, remote IDs, completed output hashes,
+and phase checkpoints. Credentials and signed URLs stay in process memory.
+Exact duplicate submissions join the recorded operation. A lost allocation or
+job ID requires reconciliation and never triggers automatic resubmission.
+An ambiguous V4 upload with a saved batch ID resumes by polling that batch.
+V1 inspects a known upload before continuing an uncertain completion.
+
+One process holds the writer lock at a time. Normal dead-process locks can be
+reclaimed with an owner-token check. An interrupted lock-recovery step or a reused
+PID fails closed with an explicit busy/recovery error. This filesystem journal
+is separate from Scholia's SQLite lease and reservation system; it does not claim
+Scholia's worker scheduling or maintenance guarantees.
+
+`operation-status` reads locally unless `--refresh` is supplied. `resume` continues
+a safe checkpoint. Finalization uses saved outputs without contacting the provider.
+Local cancellation does not cancel remote processing or remove uploaded data.
+Remote cancellation and automatic lost-ID association remain unsupported.
+Completed bundles preserve archives and every detached output, including unknown
+formats. Provider transport completion does not establish full PDF page coverage.
+
+The modern V1 adapter uses `uploads`, `parse/jobs`, and `files/{id}/content`.
+It does not use the older `agent/parse` API. Explicit capability refresh queries
+`health` and the separate `tiers` endpoint. No V4 model is mapped to a V1 tier.
+V1 range parsing is unsupported. Hosted V1 execution remains disabled by default
+until endpoint-specific validation; fixture tests can inject an adapter.
+
+New network calls require public HTTPS addresses. DNS results are checked and
+pinned at connection time; redirects are revalidated and lose API authorization.
+Transfer URLs receive only explicitly supplied headers. Private/self-hosted
+endpoints require a separately implemented trust policy and are not enabled here.
+New `submit` currently accepts PDFs; the original 8 commands retain non-PDF support.
+There is no account quota reservation, automatic scheduler, or operator UI for
+uncertain-operation association in this standalone milestone.
+
+Official protocol references are the [pinned V1 guide](https://github.com/opendatalab/MinerU/blob/mineru-4.0.5-released/docs/en/usage/http_api.md),
+[pinned example](https://github.com/opendatalab/MinerU/blob/mineru-4.0.5-released/scripts/http_api_example.sh),
+and [pinned API server schema](https://github.com/opendatalab/MinerU/blob/mineru-4.0.5-released/mineru/parser/api_server.py).
+The current guide was checked on September 30, 2026. All new execution behavior
+is fixture-tested; no live provider validation, version bump, or release is claimed.
 
 ## Configuration
 

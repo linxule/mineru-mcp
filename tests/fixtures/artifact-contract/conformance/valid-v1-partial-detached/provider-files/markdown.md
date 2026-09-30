@@ -1,0 +1,1 @@
+# Synthetic first page

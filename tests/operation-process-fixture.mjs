@@ -1,0 +1,4 @@
+import {Operations} from '../dist/operations.js';import {writeFileSync} from 'node:fs';
+const [root,source,output,signal]=process.argv.slice(2);
+const adapter={api:'v4',endpoint:'https://service.example/api/v4',capabilities:async()=>({api:'v4',endpoint:'https://service.example/api/v4',observed_at:null,validation:'fixture-only',sources:['file_id'],formats:['zip'],tiers:null,ranges:true,remote_cancel:false,lost_id_lookup:false}),prepare:async()=>{writeFileSync(signal,'started');await new Promise(resolve=>setTimeout(resolve,150));return{id:'batch',state:'pending',url:'mock'};},transfer:async()=>{}};
+try{const result=await new Operations({stateDir:root,adapterFactory:()=>adapter}).submit({file:source,output_dir:output});process.stdout.write(JSON.stringify(result));}catch(error){process.stdout.write(JSON.stringify({error:error.code}));process.exitCode=1;}

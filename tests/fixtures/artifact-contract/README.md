@@ -20,3 +20,9 @@ and SHA-256. Consumers vendor the entire directory; do not fetch at runtime.
 bundles/cases.json distinguishes structural from semantic negative manifests.
 Semantic negatives intentionally pass JSON Schema and must be rejected by the
 importer semantic/byte validation gate; this fixture package does not certify it.
+
+conformance/cases.json defines the shared byte-complete acceptance matrix.
+Each listed root includes a manifest and real synthetic retained bytes. Both
+readers run every case, including semantic failures, byte corruption, portable
+ZIP-profile rejections, reader limits, and temporary symlink substitutions.
+The source fixture is not a parseable research paper and proves no page mapping.

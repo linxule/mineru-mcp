@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { Operations } from "./operations.js";
+import { ProviderError } from "./providers/transport.js";
 import { sha256 } from "./bundle/archive.js";
 import { lifecycle, normalizeState } from "./bundle/lifecycle.js";
 import { fetchArchive, retainArchive, safeOutput } from "./bundle/download.js";
@@ -17,6 +19,9 @@ import { pipeline } from "node:stream/promises";
 
 // Configuration schema for Smithery
 export const configSchema = z.object({
+  mineruStateDir: z.string().optional(),
+  mineruV1BaseUrl: z.string().optional(),
+  mineruV1Validated: z.boolean().optional(),
   mineruApiKey: z.string().describe("MinerU API key from mineru.net"),
   mineruBaseUrl: z
     .string()
@@ -223,6 +228,18 @@ export default function createServer({ config }: { config: Config }) {
     name: "mineru",
     version: VERSION,
   });
+
+  const operations = () => new Operations({stateDir:config.mineruStateDir??process.env.MINERU_STATE_DIR,apiKey, v4Endpoint:baseUrl,v1Endpoint:config.mineruV1BaseUrl??process.env.MINERU_V1_BASE_URL,allowV1Execution:config.mineruV1Validated??false});
+  const execution = async (call:()=>Promise<any>) => {
+    try { const value=await call();const structuredContent={status:value.status??'ok',data:value.data??value,...value,meta:{...(value.meta??{}),extra:{...(value.meta?.extra??{}),contract:'mineru.execution.v1'}}};return{structuredContent,content:[{type:'text' as const,text:JSON.stringify(structuredContent,null,2)}]}; }
+    catch(error) {const code=error instanceof ProviderError?error.code:'local_operation_failed';const structuredContent={ok:false,status:'error',data:{state:'failed'},state:'failed',error:{code,message:code},meta:{extra:{contract:'mineru.execution.v1'}}};return{isError:true,structuredContent,content:[{type:'text' as const,text:code}]};}
+  };
+  server.tool('mineru_capabilities','Read locally known adapter capabilities; refresh explicitly performs discovery.',{api:z.enum(['v4','v1']).optional().default('v4'),refresh:z.boolean().optional().default(false)},p=>execution(()=>operations().capabilities(p.api,p.refresh)));
+  server.tool('mineru_submit','Submit once with a durable local journal. A lost remote ID requires reconciliation; it is never automatically resubmitted.',{file:z.string().optional(),url:z.string().optional(),api:z.enum(['v4','v1']).optional().default('v4'),direct_url:z.boolean().optional().default(false),model:z.string().optional(),tier:z.string().optional(),pages:z.string().optional(),output_dir:z.string()},p=>execution(()=>operations().submit(p)));
+  server.tool('mineru_operation_status','Read a durable operation snapshot; refresh performs one safe remote status request.',{operation_id:z.string(),refresh:z.boolean().optional().default(false)},p=>execution(()=>operations().status(p.operation_id,p.refresh)));
+  server.tool('mineru_resume','Continue safe recorded checkpoints without starting a second parse.',{operation_id:z.string()},p=>execution(()=>operations().resume(p.operation_id)));
+  server.tool('mineru_cancel','Stop local processing. Remote cancellation is unsupported unless verified.',{operation_id:z.string(),remote:z.boolean().optional().default(false)},p=>execution(()=>operations().cancel(p.operation_id,p.remote)));
+  server.tool('mineru_bundle','Validate a completed local operation bundle without downloading or parsing.',{operation_id:z.string()},p=>execution(()=>operations().bundle(p.operation_id)));
 
   // Tool 1: mineru_parse
   server.tool(

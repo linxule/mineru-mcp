@@ -1,0 +1,336 @@
+{
+  "page_map": {
+    "schema_version": "scholia.page-map.v1",
+    "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+    "extraction_id": "ext_mapper_fixture",
+    "adapter": {
+      "name": "mineru-content-list-flat",
+      "version": "1"
+    },
+    "blocks": [
+      {
+        "block_id": "blk_f2eb33493da75606aab7bafc5acbd57e",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/0",
+        "source_page_index": 0,
+        "source_page_index_base": 0,
+        "page_number": 1,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      },
+      {
+        "block_id": "blk_c97296d31f1c5450b55db4e681296b1b",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/1",
+        "source_page_index": 0,
+        "source_page_index_base": 0,
+        "page_number": 1,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      },
+      {
+        "block_id": "blk_6bcb0178355a508c8c648be426f9245e",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/2",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_number": 3,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      },
+      {
+        "block_id": "blk_123e569db03b5176a26b344a8b0f1e9a",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/3",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_number": 3,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      },
+      {
+        "block_id": "blk_237bedd386e45ac99e64777d594ef983",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/4",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_number": 3,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      },
+      {
+        "block_id": "blk_7c1ac846c620546193b9fe1da5dffe5f",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/5",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_number": 3,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      },
+      {
+        "block_id": "blk_c8d749fd8f7c5591b27caa74170d7298",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/6",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_number": 3,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      },
+      {
+        "block_id": "blk_b847c6a3289e520993cf12fc28d172da",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/7",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_number": 3,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "ordinal": 0,
+      "block_id": "blk_f2eb33493da75606aab7bafc5acbd57e",
+      "text": "Synthetic heading α 🙂",
+      "page_number": 1,
+      "section_path": null,
+      "block_type": "heading",
+      "locator": "corpus://block/blk_f2eb33493da75606aab7bafc5acbd57e",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "1"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/0",
+        "source_page_index": 0,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    },
+    {
+      "ordinal": 1,
+      "block_id": "blk_c97296d31f1c5450b55db4e681296b1b",
+      "text": "Original first page text.",
+      "page_number": 1,
+      "section_path": null,
+      "block_type": "text",
+      "locator": "corpus://block/blk_c97296d31f1c5450b55db4e681296b1b",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "1"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/1",
+        "source_page_index": 0,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    },
+    {
+      "ordinal": 2,
+      "block_id": "blk_6bcb0178355a508c8c648be426f9245e",
+      "text": "Synthetic table\n<table><tr><td>Value</td></tr></table>",
+      "page_number": 3,
+      "section_path": null,
+      "block_type": "table",
+      "locator": "corpus://block/blk_6bcb0178355a508c8c648be426f9245e",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "1"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/2",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    },
+    {
+      "ordinal": 3,
+      "block_id": "blk_123e569db03b5176a26b344a8b0f1e9a",
+      "text": "x=1",
+      "page_number": 3,
+      "section_path": null,
+      "block_type": "equation",
+      "locator": "corpus://block/blk_123e569db03b5176a26b344a8b0f1e9a",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "1"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/3",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    },
+    {
+      "ordinal": 4,
+      "block_id": "blk_237bedd386e45ac99e64777d594ef983",
+      "text": "Synthetic figure",
+      "page_number": 3,
+      "section_path": null,
+      "block_type": "image",
+      "locator": "corpus://block/blk_237bedd386e45ac99e64777d594ef983",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "1"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/4",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    },
+    {
+      "ordinal": 5,
+      "block_id": "blk_7c1ac846c620546193b9fe1da5dffe5f",
+      "text": "First\nSecond",
+      "page_number": 3,
+      "section_path": null,
+      "block_type": "list",
+      "locator": "corpus://block/blk_7c1ac846c620546193b9fe1da5dffe5f",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "1"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/5",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    },
+    {
+      "ordinal": 6,
+      "block_id": "blk_c8d749fd8f7c5591b27caa74170d7298",
+      "text": "print(\"synthetic\")",
+      "page_number": 3,
+      "section_path": null,
+      "block_type": "code",
+      "locator": "corpus://block/blk_c8d749fd8f7c5591b27caa74170d7298",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "1"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/6",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    },
+    {
+      "ordinal": 7,
+      "block_id": "blk_b847c6a3289e520993cf12fc28d172da",
+      "text": "iii",
+      "page_number": 3,
+      "section_path": null,
+      "block_type": "page_number",
+      "locator": "corpus://block/blk_b847c6a3289e520993cf12fc28d172da",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "1"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+        "artifact_id": "archive",
+        "member_id": "member/with~pointer-chars",
+        "raw_json_pointer": "/7",
+        "source_page_index": 2,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    }
+  ],
+  "format_schema": "mineru.content-list",
+  "format_version": "2.5.4-flat-v1",
+  "content_sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6",
+  "observed_pages": [
+    1,
+    3
+  ],
+  "coverage": {
+    "status": "unknown",
+    "source_complete": null,
+    "reason": "Content block page attribution does not prove extraction coverage."
+  },
+  "limitations": [
+    "Page attribution follows the pinned provider block page_idx; it does not verify OCR accuracy or semantic association.",
+    "Bounding boxes and printed page labels are unavailable without independently established geometry and rotation.",
+    "Observed block pages do not establish complete coverage or identify missing blank pages."
+  ]
+}

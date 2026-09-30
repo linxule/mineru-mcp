@@ -97,8 +97,13 @@ is inferred. Replays verify retained bytes before returning the existing bundle.
 MCP lifecycle results include `structuredContent`; CLI lifecycle commands expose
 it with `--json`. Polling uses normalized states across the full batch, including
 pending entries outside pagination. All 8 public tool and command names remain.
-Standalone durable submission reservation and lost-ID recovery are not implemented.
-A CLI process restart is not proof that a prior cloud submission was rejected.
+The new submit/operation-status/resume/cancel/bundle operations use an atomic
+filesystem journal and one writer lock. Exact requests deduplicate; known remote
+IDs resume safe checkpoints. Unknown lost IDs remain reconciliation_required.
+A CLI process restart is never proof that a cloud submission was rejected.
+Modern V1 uses uploads/parse/jobs and separate health/tiers discovery, remains
+fixture-only and disabled for hosted submission by default. See README for
+trust-policy, lock-recovery, scheduling, and quota limitations.
 
 Merged slices retain hash-qualified archives and report unknown page provenance.
 The content JSON now records slice references rather than flattening arrays or

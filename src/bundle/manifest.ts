@@ -4,6 +4,7 @@ import { lstat, mkdir, open, rename, rm, mkdtemp } from 'node:fs/promises';
 import { basename, dirname, join, parse, resolve } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { inspectZip, DEFAULT_LIMITS, sha256 } from './archive.js';
+import { validateBundleStructure } from './schema.js';
 import { bundleSchema } from './schema.js';
 import { strictLoads, canonicalBytes } from '../canonical.js';
 import { VERSION } from '../version.js';
@@ -19,56 +20,8 @@ export interface CreateBundleOptions {
   binding?: 'unknown' | 'caller_asserted';
 }
 
-// Evaluates every validation keyword used by the bundled, fixed schema. This is
-// deliberately not a public, general-purpose JSON Schema implementation.
-function checkShape(value: any, rule: any, location = '$'): void {
-  const fail = (reason: string): never => { throw new BundleError('invalid_manifest', `${location}: ${reason}`); };
-  if (rule.$ref) {
-    const target = rule.$ref.split('/').slice(1).reduce((node: any, key: string) => node[key], bundleSchema);
-    if (!target) fail('unresolved schema reference');
-    checkShape(value, target, location);
-  }
-  if ('const' in rule && !isDeepStrictEqual(value, rule.const)) fail('constant mismatch');
-  if (rule.enum && !rule.enum.some((entry: any) => isDeepStrictEqual(entry, value))) fail('invalid enum');
-  const matches = (sub: any) => { try { checkShape(value, sub, location); return true; } catch { return false; } };
-  if (rule.anyOf && !rule.anyOf.some(matches)) fail('no matching shape');
-  if (rule.allOf) for (const sub of rule.allOf) checkShape(value, sub, location);
-  if (rule.if) { const branch = matches(rule.if) ? rule.then : rule.else; if (branch) checkShape(value, branch, location); }
-  if (rule.type) {
-    const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
-    const types = Array.isArray(rule.type) ? rule.type : [rule.type];
-    if (!types.some((t: string) => t === actual || t === 'integer' && Number.isSafeInteger(value))) fail('wrong type');
-  }
-  if (typeof value === 'number' && (!Number.isFinite(value) || rule.minimum !== undefined && value < rule.minimum)) fail('number outside bounds');
-  if (typeof value === 'string') {
-    const length = [...value].length;
-    if (rule.minLength !== undefined && length < rule.minLength || rule.maxLength !== undefined && length > rule.maxLength) fail('string length');
-    if (rule.pattern && !new RegExp(rule.pattern, 'u').test(value)) fail('pattern mismatch');
-    if (rule.format === 'uri') { try { new URL(value); } catch { fail('invalid URI'); } }
-    if (rule.format === 'date-time') {
-      const parts = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/i.exec(value);
-      if (!parts || !Number.isFinite(Date.parse(value))) fail('invalid date-time');
-      const year = Number(parts![1]), month = Number(parts![2]), day = Number(parts![3]);
-      const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-      const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-      if (month < 1 || month > 12 || day < 1 || day > days[month - 1] || Number(parts![4]) > 23 || Number(parts![5]) > 59 || Number(parts![6]) > 59 || Number(parts![8] ?? 0) > 23 || Number(parts![9] ?? 0) > 59) fail('invalid date-time');
-    }
-  }
-  if (Array.isArray(value)) {
-    if (rule.minItems !== undefined && value.length < rule.minItems) fail('too few items');
-    if (rule.items) value.forEach((v, i) => checkShape(v, rule.items, `${location}[${i}]`));
-  } else if (value && typeof value === 'object') {
-    for (const key of rule.required ?? []) if (!Object.hasOwn(value, key)) fail(`missing ${key}`);
-    for (const [key, entry] of Object.entries(value)) {
-      if (rule.propertyNames) checkShape(key, rule.propertyNames, location);
-      if (Object.hasOwn(rule.properties ?? {}, key)) checkShape(entry, rule.properties[key], `${location}.${key}`);
-      else if (rule.additionalProperties === false) fail(`unexpected ${key}`);
-    }
-  }
-}
-
-/** Shape validation only; createBundle also verifies bytes and construction invariants. */
-export function validateBundleShape(manifest: unknown): void { checkShape(manifest, bundleSchema); }
+/** Shared normative structure validation; byte/semantic checks remain required. */
+export function validateBundleShape(manifest: unknown): void { try { validateBundleStructure(manifest); } catch(error) { throw new BundleError('invalid_manifest', error instanceof Error ? error.message : 'Invalid manifest'); } }
 
 async function checkComponents(path: string, create = false): Promise<void> {
   const absolute = resolve(path);
@@ -81,7 +34,7 @@ async function checkComponents(path: string, create = false): Promise<void> {
   }
 }
 
-async function readRegular(path: string, maxBytes: number): Promise<Buffer> {
+export async function readRegular(path: string, maxBytes: number): Promise<Buffer> {
   path = resolve(path);
   await checkComponents(dirname(path));
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);

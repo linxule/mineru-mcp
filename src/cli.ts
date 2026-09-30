@@ -62,6 +62,8 @@ function parseArgs(argv: string[], props: Record<string, PropSchema>): { command
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
     if (a === "--json") continue;
+    if(a === "--wait-timeout-seconds") { i++; continue; }
+    if(a.startsWith("--wait-timeout-seconds=")) continue;
     if (a === "--wait") { wait = true; continue; }
     if (!a.startsWith("--")) throw new Error(`Unexpected argument: ${a}`);
     let key = a.slice(2);
@@ -80,7 +82,7 @@ async function main() {
   const argv = process.argv.slice(2);
   const command = argv[0];
   const json = argv.includes('--json');
-  if(command === 'bundle') {
+  if(command === 'bundle' && !argv.some(a=>a==='--operation-id'||a.startsWith('--operation-id='))) {
     const {args} = parseArgs(argv, {});
     if(typeof args.source !== 'string' || typeof args.archive !== 'string' || typeof args.output !== 'string') throw new Error('bundle requires --source exact.pdf --archive result.zip --output directory');
     if(Object.keys(args).some(key=>!['source','archive','output','batch_id','model','binding'].includes(key))) throw new Error('Unknown bundle option');
@@ -123,22 +125,29 @@ async function main() {
   const props = ((tool.inputSchema as { properties?: Record<string, PropSchema> }).properties) || {};
   const { args, wait } = parseArgs(argv, props);
 
+  const timeoutIndex=argv.indexOf('--wait-timeout-seconds');
+  const timeoutValue=timeoutIndex>=0?argv[timeoutIndex+1]:argv.find(a=>a.startsWith('--wait-timeout-seconds='))?.split('=')[1];
+  const timeoutSeconds=timeoutValue===undefined?1800:Number(timeoutValue);
+  if(!Number.isInteger(timeoutSeconds)||timeoutSeconds<1||timeoutSeconds>86400) throw new Error('wait-timeout-seconds must be 1..86400');
   const started = Date.now();
+  let activeToolName=toolName,activeArgs=args;
+  if(wait&&command==='operation-status')activeArgs={...args,refresh:true};
   for (;;) {
-    const result = await client.callTool({ name: toolName, arguments: args });
+    const result = await client.callTool({ name: activeToolName, arguments: activeArgs });
     const text = (result.content as Array<{ type: string; text?: string }>)
       .filter((c) => c.type === "text").map((c) => c.text || "").join("\n");
-    if (result.isError) throw new Error(text);
+    if(result.isError) {if(json&&result.structuredContent){console.log(JSON.stringify(result.structuredContent));process.exitCode=1;return;}throw new Error(text);}
     const structured = result.structuredContent as {state?:string;pollable?:boolean}|undefined;
     if (!(wait && structured?.pollable === true)) {
-      console.log(json?JSON.stringify({ok:true,...(structured??{state:'completed',text})}):text);
-      if(structured?.state === 'failed') process.exitCode=1;
-      else if(structured?.state === 'partial' || structured?.state === 'unknown') process.exitCode=2;
+      console.log(json?JSON.stringify({ok:true,...(structured??{state:'completed',text}),meta:(structured as any)?.meta??{extra:{contract:"mineru.execution.v1"}}}):text);
+      if(structured?.state === 'failed'||structured?.state === 'failed_terminal') process.exitCode=1;
+      else if((structured as any)?.status==='partial'||structured?.state === 'partial' || structured?.state === 'unknown'||structured?.state === 'needs_input'||structured?.state === 'reconciliation_required') process.exitCode=2;
       return;
     }
-    if (Date.now() - started > WAIT_MAX_MS) throw new Error(`Gave up waiting after 30 min:\n${text}`);
+    if (Date.now() - started >= timeoutSeconds*1000) {const timeout={...(structured??{}),ok:true,status:'partial',code:'wait_timeout',meta:{extra:{contract:'mineru.execution.v1'}}};console.log(json?JSON.stringify(timeout):`Wait timed out; resume the recorded operation.\n${text}`);process.exitCode=2;return;}
+    if(command==='submit'&&(structured as any)?.operation_id){activeToolName='mineru_resume';activeArgs={operation_id:(structured as any).operation_id};}
     process.stderr.write(`[wait] ${text.split("\n")[0].slice(0, 100)}\n`);
-    await new Promise((r) => setTimeout(r, POLL_MS));
+    await new Promise((r) => setTimeout(r, Math.min(POLL_MS,Math.max(1,timeoutSeconds*1000-(Date.now()-started)))));
   }
 }
 

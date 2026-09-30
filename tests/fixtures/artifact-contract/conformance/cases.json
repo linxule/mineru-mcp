@@ -1,0 +1,560 @@
+{
+  "matrix_version": 1,
+  "description": "Synthetic offline manifest, semantic, byte and path acceptance cases. Both readers must evaluate every case, including integral and exact decimal lexemes. No credentials or provider captures.",
+  "cases": [
+    {
+      "id": "valid-v4-archive",
+      "root": "conformance/valid-v4-archive",
+      "valid": true
+    },
+    {
+      "id": "valid-v1-partial-detached",
+      "root": "conformance/valid-v1-partial-detached",
+      "valid": true
+    },
+    {
+      "id": "valid-source-referenced",
+      "root": "conformance/valid-source-referenced",
+      "valid": true
+    },
+    {
+      "id": "valid-cancelled-with-retained-output",
+      "root": "conformance/valid-cancelled-with-retained-output",
+      "valid": true
+    },
+    {
+      "id": "valid-unknown-provider-schema",
+      "root": "conformance/valid-unknown-provider-schema",
+      "valid": true
+    },
+    {
+      "id": "valid-leap-second",
+      "root": "conformance/valid-leap-second",
+      "valid": true
+    },
+    {
+      "id": "valid-lowercase-date",
+      "root": "conformance/valid-lowercase-date",
+      "valid": true
+    },
+    {
+      "id": "valid-integral-decimal-lexemes",
+      "root": "conformance/valid-integral-decimal-lexemes",
+      "valid": true
+    },
+    {
+      "id": "valid-exact-decimal-options",
+      "root": "conformance/valid-exact-decimal-options",
+      "valid": true
+    },
+    {
+      "id": "valid-namespaced-extension",
+      "root": "conformance/valid-namespaced-extension",
+      "valid": true
+    },
+    {
+      "id": "valid-observed-ranges-unknown-extent",
+      "root": "conformance/valid-observed-ranges-unknown-extent",
+      "valid": true
+    },
+    {
+      "id": "valid-source-stable-url",
+      "root": "conformance/valid-source-stable-url",
+      "valid": true
+    },
+    {
+      "id": "reject-unsupported-version",
+      "root": "conformance/reject-unsupported-version",
+      "valid": false
+    },
+    {
+      "id": "reject-extra-top-field",
+      "root": "conformance/reject-extra-top-field",
+      "valid": false
+    },
+    {
+      "id": "reject-bad-date",
+      "root": "conformance/reject-bad-date",
+      "valid": false
+    },
+    {
+      "id": "reject-date-no-zone",
+      "root": "conformance/reject-date-no-zone",
+      "valid": false
+    },
+    {
+      "id": "reject-bad-offset",
+      "root": "conformance/reject-bad-offset",
+      "valid": false
+    },
+    {
+      "id": "reject-date-hour24",
+      "root": "conformance/reject-date-hour24",
+      "valid": false
+    },
+    {
+      "id": "reject-source-hash-disagrees",
+      "root": "conformance/reject-source-hash-disagrees",
+      "valid": false
+    },
+    {
+      "id": "reject-source-size-disagrees",
+      "root": "conformance/reject-source-size-disagrees",
+      "valid": false
+    },
+    {
+      "id": "reject-present-source-absence-reason",
+      "root": "conformance/reject-present-source-absence-reason",
+      "valid": false
+    },
+    {
+      "id": "reject-absent-source-no-reason",
+      "root": "conformance/reject-absent-source-no-reason",
+      "valid": false
+    },
+    {
+      "id": "reject-source-not-pdf-type",
+      "root": "conformance/reject-source-not-pdf-type",
+      "valid": false
+    },
+    {
+      "id": "reject-duplicate-member-id",
+      "root": "conformance/reject-duplicate-member-id",
+      "valid": false
+    },
+    {
+      "id": "reject-duplicate-member-index",
+      "root": "conformance/reject-duplicate-member-index",
+      "valid": false
+    },
+    {
+      "id": "reject-nonconsecutive-member-index",
+      "root": "conformance/reject-nonconsecutive-member-index",
+      "valid": false
+    },
+    {
+      "id": "reject-member-hash-mismatch",
+      "root": "conformance/reject-member-hash-mismatch",
+      "valid": false
+    },
+    {
+      "id": "reject-member-size-mismatch",
+      "root": "conformance/reject-member-size-mismatch",
+      "valid": false
+    },
+    {
+      "id": "reject-member-compressed-size-mismatch",
+      "root": "conformance/reject-member-compressed-size-mismatch",
+      "valid": false
+    },
+    {
+      "id": "reject-member-file-null-hash",
+      "root": "conformance/reject-member-file-null-hash",
+      "valid": false
+    },
+    {
+      "id": "reject-member-traversal",
+      "root": "conformance/reject-member-traversal",
+      "valid": false
+    },
+    {
+      "id": "reject-member-absolute",
+      "root": "conformance/reject-member-absolute",
+      "valid": false
+    },
+    {
+      "id": "reject-member-drive",
+      "root": "conformance/reject-member-drive",
+      "valid": false
+    },
+    {
+      "id": "reject-member-backslash",
+      "root": "conformance/reject-member-backslash",
+      "valid": false
+    },
+    {
+      "id": "reject-member-control-c1",
+      "root": "conformance/reject-member-control-c1",
+      "valid": false
+    },
+    {
+      "id": "reject-member-empty-segment",
+      "root": "conformance/reject-member-empty-segment",
+      "valid": false
+    },
+    {
+      "id": "reject-member-dot-segment",
+      "root": "conformance/reject-member-dot-segment",
+      "valid": false
+    },
+    {
+      "id": "reject-member-casefold-collision",
+      "root": "conformance/reject-member-casefold-collision",
+      "valid": false
+    },
+    {
+      "id": "reject-member-file-prefix",
+      "root": "conformance/reject-member-file-prefix",
+      "valid": false
+    },
+    {
+      "id": "reject-file-unsafe-path",
+      "root": "conformance/reject-file-unsafe-path",
+      "valid": false
+    },
+    {
+      "id": "reject-manifest-as-file",
+      "root": "conformance/reject-manifest-as-file",
+      "valid": false
+    },
+    {
+      "id": "reject-unknown-pages-complete",
+      "root": "conformance/reject-unknown-pages-complete",
+      "valid": false
+    },
+    {
+      "id": "reject-unknown-pages-source-complete",
+      "root": "conformance/reject-unknown-pages-source-complete",
+      "valid": false
+    },
+    {
+      "id": "reject-unknown-coverage-no-reason",
+      "root": "conformance/reject-unknown-coverage-no-reason",
+      "valid": false
+    },
+    {
+      "id": "reject-no-requested-ranges",
+      "root": "conformance/reject-no-requested-ranges",
+      "valid": false
+    },
+    {
+      "id": "reject-transport-options",
+      "root": "conformance/reject-transport-options",
+      "valid": false
+    },
+    {
+      "id": "reject-reserved-options",
+      "root": "conformance/reject-reserved-options",
+      "valid": false
+    },
+    {
+      "id": "reject-corpus-binding-hash",
+      "root": "conformance/reject-corpus-binding-hash",
+      "valid": false
+    },
+    {
+      "id": "reject-duplicate-artifact-id",
+      "root": "conformance/reject-duplicate-artifact-id",
+      "valid": false
+    },
+    {
+      "id": "reject-incomplete-inventory",
+      "root": "conformance/reject-incomplete-inventory",
+      "valid": false
+    },
+    {
+      "id": "reject-member-nfc-collision",
+      "root": "conformance/reject-member-nfc-collision",
+      "valid": false
+    },
+    {
+      "id": "reject-zero-retained-outputs",
+      "root": "conformance/reject-zero-retained-outputs",
+      "valid": false
+    },
+    {
+      "id": "reject-required-field",
+      "root": "conformance/reject-required-field",
+      "valid": false
+    },
+    {
+      "id": "reject-origin-userinfo",
+      "root": "conformance/reject-origin-userinfo",
+      "valid": false
+    },
+    {
+      "id": "reject-origin-fragment",
+      "root": "conformance/reject-origin-fragment",
+      "valid": false
+    },
+    {
+      "id": "reject-origin-token",
+      "root": "conformance/reject-origin-token",
+      "valid": false
+    },
+    {
+      "id": "reject-origin-space",
+      "root": "conformance/reject-origin-space",
+      "valid": false
+    },
+    {
+      "id": "reject-origin-percent",
+      "root": "conformance/reject-origin-percent",
+      "valid": false
+    },
+    {
+      "id": "reject-config-hash",
+      "root": "conformance/reject-config-hash",
+      "valid": false
+    },
+    {
+      "id": "reject-artifact-reference",
+      "root": "conformance/reject-artifact-reference",
+      "valid": false
+    },
+    {
+      "id": "reject-member-reference",
+      "root": "conformance/reject-member-reference",
+      "valid": false
+    },
+    {
+      "id": "reject-pointer-reference",
+      "root": "conformance/reject-pointer-reference",
+      "valid": false
+    },
+    {
+      "id": "reject-page-map-format",
+      "root": "conformance/reject-page-map-format",
+      "valid": false
+    },
+    {
+      "id": "reject-unverified-page-map",
+      "root": "conformance/reject-unverified-page-map",
+      "valid": false
+    },
+    {
+      "id": "reject-overlapping-coverage",
+      "root": "conformance/reject-overlapping-coverage",
+      "valid": false
+    },
+    {
+      "id": "reject-coverage-gap",
+      "root": "conformance/reject-coverage-gap",
+      "valid": false
+    },
+    {
+      "id": "reject-out-of-source-range",
+      "root": "conformance/reject-out-of-source-range",
+      "valid": false
+    },
+    {
+      "id": "reject-descending-range",
+      "root": "conformance/reject-descending-range",
+      "valid": false
+    },
+    {
+      "id": "reject-status-false-complete",
+      "root": "conformance/reject-status-false-complete",
+      "valid": false
+    },
+    {
+      "id": "reject-uncoalesced-range",
+      "root": "conformance/reject-uncoalesced-range",
+      "valid": false
+    },
+    {
+      "id": "reject-duplicate-materialization",
+      "root": "conformance/reject-duplicate-materialization",
+      "valid": false
+    },
+    {
+      "id": "reject-forged-validated-complete",
+      "root": "conformance/reject-forged-validated-complete",
+      "valid": false
+    },
+    {
+      "id": "reject-duplicate-json-key",
+      "root": "conformance/reject-duplicate-json-key",
+      "valid": false
+    },
+    {
+      "id": "reject-nonfinite-json",
+      "root": "conformance/reject-nonfinite-json",
+      "valid": false
+    },
+    {
+      "id": "reject-unpaired-surrogate",
+      "root": "conformance/reject-unpaired-surrogate",
+      "valid": false
+    },
+    {
+      "id": "reject-source-byte-hash",
+      "root": "conformance/reject-source-byte-hash",
+      "valid": false
+    },
+    {
+      "id": "reject-detached-byte-hash",
+      "root": "conformance/reject-detached-byte-hash",
+      "valid": false
+    },
+    {
+      "id": "reject-derived-byte-hash",
+      "root": "conformance/reject-derived-byte-hash",
+      "valid": false
+    },
+    {
+      "id": "reject-truncated-archive",
+      "root": "conformance/reject-truncated-archive",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-trailing-data",
+      "root": "conformance/reject-zip-trailing-data",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-local-crc",
+      "root": "conformance/reject-zip-local-crc",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-local-name",
+      "root": "conformance/reject-zip-local-name",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-local-flags",
+      "root": "conformance/reject-zip-local-flags",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-corrupt-member",
+      "root": "conformance/reject-zip-corrupt-member",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-zip64-extra",
+      "root": "conformance/reject-zip-zip64-extra",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-bzip2",
+      "root": "conformance/reject-zip-bzip2",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-cp437",
+      "root": "conformance/reject-zip-cp437",
+      "valid": false
+    },
+    {
+      "id": "reject-reader-member-limit",
+      "root": "conformance/reject-reader-member-limit",
+      "valid": false,
+      "reader_limits": {
+        "max_member_bytes": 25
+      }
+    },
+    {
+      "id": "reject-reader-entry-limit",
+      "root": "conformance/reject-reader-entry-limit",
+      "valid": false,
+      "reader_limits": {
+        "max_members": 2
+      }
+    },
+    {
+      "id": "reject-reader-archive-limit",
+      "root": "conformance/reject-reader-archive-limit",
+      "valid": false,
+      "reader_limits": {
+        "max_archive_bytes": 100
+      }
+    },
+    {
+      "id": "reject-reader-manifest-limit",
+      "root": "conformance/reject-reader-manifest-limit",
+      "valid": false,
+      "reader_limits": {
+        "max_manifest_bytes": 100
+      }
+    },
+    {
+      "id": "reject-detached-total-limit",
+      "root": "conformance/reject-detached-total-limit",
+      "valid": false,
+      "reader_limits": {
+        "max_total_uncompressed_bytes": 70
+      }
+    },
+    {
+      "id": "reject-bundle-total-spans-archives",
+      "root": "conformance/reject-bundle-total-spans-archives",
+      "valid": false,
+      "reader_limits": {
+        "max_total_uncompressed_bytes": 150
+      }
+    },
+    {
+      "id": "reject-source-symlink",
+      "root": "conformance/reject-source-symlink",
+      "valid": false,
+      "filesystem": {
+        "symlink_file": "source/source.pdf"
+      }
+    },
+    {
+      "id": "reject-source-parent-symlink",
+      "root": "conformance/reject-source-parent-symlink",
+      "valid": false,
+      "filesystem": {
+        "symlink_directory": "source"
+      }
+    },
+    {
+      "id": "reject-options-credentials",
+      "root": "conformance/reject-options-credentials",
+      "valid": false
+    },
+    {
+      "id": "reject-options-api-key",
+      "root": "conformance/reject-options-api-key",
+      "valid": false
+    },
+    {
+      "id": "reject-options-accessToken",
+      "root": "conformance/reject-options-accessToken",
+      "valid": false
+    },
+    {
+      "id": "reject-options-account_id",
+      "root": "conformance/reject-options-account_id",
+      "valid": false
+    },
+    {
+      "id": "reject-options-cookie",
+      "root": "conformance/reject-options-cookie",
+      "valid": false
+    },
+    {
+      "id": "reject-non-pdf-source-bytes",
+      "root": "conformance/reject-non-pdf-source-bytes",
+      "valid": false
+    },
+    {
+      "id": "valid-repeated-archive-reference",
+      "root": "conformance/valid-repeated-archive-reference",
+      "valid": true
+    },
+    {
+      "id": "reject-repeated-archive-forged-first-inventory",
+      "root": "conformance/reject-repeated-archive-forged-first-inventory",
+      "valid": false
+    },
+    {
+      "id": "reject-zip-entry-on-other-disk",
+      "root": "conformance/reject-zip-entry-on-other-disk",
+      "valid": false
+    },
+    {
+      "id": "valid-large-extension-number",
+      "root": "conformance/valid-large-extension-number",
+      "valid": true
+    },
+    {
+      "id": "reject-unbounded-option-number",
+      "root": "conformance/reject-unbounded-option-number",
+      "valid": false
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+{
+  "schema": "scholia.artifact-bundle",
+  "schema_version": "1.0.1",
+  "created_at": "2026-09-20T00:00:00Z",
+  "producer": {
+    "name": "synthetic-contract-example",
+    "version": "1.0.0"
+  },
+  "source": {
+    "sha256": "ee29fc12fafe1e21efae73ade839692b43ae2bf8ab38c301e91071051cdae041",
+    "size_bytes": 75,
+    "media_type": "application/pdf",
+    "original_filename": "synthetic.pdf",
+    "page_count": 2,
+    "file": {
+      "path": "source/source.pdf",
+      "sha256": "ee29fc12fafe1e21efae73ade839692b43ae2bf8ab38c301e91071051cdae041",
+      "size_bytes": 75,
+      "media_type": "application/pdf"
+    },
+    "absence_reason": null,
+    "origin": {
+      "kind": "upload",
+      "url": null,
+      "fetched_at": null
+    }
+  },
+  "provider": {
+    "name": "mineru",
+    "api_generation": "v1",
+    "endpoint_origin": "https://mineru.net",
+    "operation": {
+      "kind": "job",
+      "operation_id": "synthetic-v1-partial",
+      "file_id": null,
+      "client_data_id": "ee29fc12fafe1e21efae73ade839692b43ae2bf8ab38c301e91071051cdae041",
+      "terminal_state": "partial"
+    },
+    "request": {
+      "model": null,
+      "tier": "standard",
+      "parser_version": null,
+      "options": {}
+    },
+    "reported": {
+      "model": null,
+      "model_version": null,
+      "tier": null,
+      "parser_version": null
+    },
+    "source_binding": {
+      "method": "unknown",
+      "evidence": "Synthetic example; no upload or provider checksum establishes source association."
+    },
+    "outputs_unavailable": [
+      {
+        "role": "image",
+        "format": "images",
+        "file_id": "synthetic-image-file",
+        "reason": "expired"
+      }
+    ]
+  },
+  "coverage": {
+    "status": "partial",
+    "requested": {
+      "scope": "ranges",
+      "ranges": [
+        {
+          "start": 1,
+          "end": 2
+        }
+      ]
+    },
+    "completed": {
+      "ranges": [
+        {
+          "start": 1,
+          "end": 1
+        }
+      ],
+      "basis": "provider_reported",
+      "evidence": [
+        {
+          "artifact_id": "provider-json",
+          "member_id": null,
+          "json_pointer": "/completed_pages"
+        }
+      ]
+    },
+    "missing": {
+      "ranges": [
+        {
+          "start": 2,
+          "end": 2
+        }
+      ],
+      "basis": "provider_reported",
+      "evidence": [
+        {
+          "artifact_id": "provider-json",
+          "member_id": null,
+          "json_pointer": "/missing_pages"
+        }
+      ]
+    },
+    "unknown": {
+      "ranges": [],
+      "reason": null
+    },
+    "source_complete": false
+  },
+  "archives": [],
+  "provider_files": [
+    {
+      "artifact_id": "provider-markdown",
+      "file": {
+        "path": "provider-files/markdown.md",
+        "sha256": "58f431858c98722601f365d8a3843488fda8f8296b39bff19afe76c7b5721bc0",
+        "size_bytes": 23,
+        "media_type": "text/markdown"
+      },
+      "role": "markdown",
+      "format_schema": null,
+      "format_version": null,
+      "file_id": "synthetic-provider-markdown"
+    },
+    {
+      "artifact_id": "provider-json",
+      "file": {
+        "path": "provider-files/structured_content.json",
+        "sha256": "e7c14bfdeaa11db13c0e6d18c61eb79f3f0e0b8d0aa93e58fb47858700d6e90f",
+        "size_bytes": 61,
+        "media_type": "application/json"
+      },
+      "role": "structured_json",
+      "format_schema": null,
+      "format_version": null,
+      "file_id": "synthetic-provider-json"
+    }
+  ],
+  "materializations": [
+    {
+      "materializer_name": "synthetic-example-only",
+      "materializer_version": "1",
+      "config": {
+        "max_block_chars": 16000,
+        "max_blocks": 10000,
+        "max_markdown_bytes": 67108864
+      },
+      "config_hash": "be0bb8d4823b91b0bbfc8165f77571b2fbbcae42eac90a8aa7f6c6cdf00089c6",
+      "page_provenance": "unknown",
+      "page_map": {
+        "artifact_id": "derived-page-map",
+        "member_id": null,
+        "json_pointer": null
+      },
+      "outputs": [
+        {
+          "artifact_id": "derived-page-map",
+          "file": {
+            "path": "derived/page-map.json",
+            "sha256": "4d085bb96f62ee9440a65800ec336a5be8ff5868b6d655fe4b4d49fe4c9b008f",
+            "size_bytes": 244,
+            "media_type": "application/json"
+          },
+          "role": "page_map",
+          "format_schema": "scholia.page-map",
+          "format_version": "1",
+          "inputs": [
+            {
+              "artifact_id": "provider-json",
+              "member_id": null,
+              "json_pointer": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "materializer_name": "synthetic-example-only",
+      "materializer_version": "1",
+      "config": {
+        "max_block_chars": 16000,
+        "max_blocks": 10000,
+        "max_markdown_bytes": 67108864
+      },
+      "config_hash": "be0bb8d4823b91b0bbfc8165f77571b2fbbcae42eac90a8aa7f6c6cdf00089c6",
+      "page_provenance": "unknown",
+      "page_map": {
+        "artifact_id": "derived-page-map",
+        "member_id": null,
+        "json_pointer": null
+      },
+      "outputs": [
+        {
+          "artifact_id": "derived-page-map",
+          "file": {
+            "path": "derived/page-map.json",
+            "sha256": "4d085bb96f62ee9440a65800ec336a5be8ff5868b6d655fe4b4d49fe4c9b008f",
+            "size_bytes": 244,
+            "media_type": "application/json"
+          },
+          "role": "page_map",
+          "format_schema": "scholia.page-map",
+          "format_version": "1",
+          "inputs": [
+            {
+              "artifact_id": "provider-json",
+              "member_id": null,
+              "json_pointer": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "validation_limits": {
+    "max_archive_bytes": 536870912,
+    "max_members": 20000,
+    "max_member_bytes": 536870912,
+    "max_total_uncompressed_bytes": 2147483648,
+    "max_compression_ratio": 1000,
+    "max_manifest_bytes": 16777216
+  },
+  "warnings": [
+    {
+      "code": "synthetic_fixture",
+      "message": "Contract illustration only. No provider was contacted; source bytes are not a parseable PDF."
+    },
+    {
+      "code": "unknown_page_provenance",
+      "message": "No PDF page location can be claimed."
+    },
+    {
+      "code": "synthetic_coverage",
+      "message": "Page count and reported ranges illustrate schema state only. No actual PDF mapping is established; the derived map is empty."
+    }
+  ],
+  "legacy_receipts": [],
+  "predecessor_manifest_sha256": null
+}

@@ -47,7 +47,7 @@ async function mockApi(t) {
 async function verifyTools(client, requests) {
   assert.equal(client.getServerVersion().version, packageVersion);
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map(tool => tool.name).sort(), ['mineru_batch', 'mineru_batch_status', 'mineru_download_results', 'mineru_merge_slices', 'mineru_parse', 'mineru_parse_long', 'mineru_status', 'mineru_upload_batch']);
+  assert.deepEqual(tools.map(tool => tool.name).sort(), ['mineru_batch','mineru_batch_status','mineru_bundle','mineru_cancel','mineru_capabilities','mineru_download_results','mineru_merge_slices','mineru_operation_status','mineru_parse','mineru_parse_long','mineru_resume','mineru_status','mineru_submit','mineru_upload_batch']);
   assert.deepEqual(tools.find(tool => tool.name === 'mineru_parse').inputSchema.required, ['url']);
   const call = (name, args) => client.callTool({ name, arguments: args });
   const parsed = await call('mineru_parse', { url: 'https://example.test/paper.pdf', ocr: false, formula: false, table: true, formats: ['html'] });

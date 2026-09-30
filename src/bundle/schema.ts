@@ -1188,3 +1188,72 @@ export const bundleSchema = {
     }
   ]
 } as const;
+
+// Fixed-schema evaluator shared by the constrained producer and generic reader.
+// Only the keywords present in the frozen 1.0.1 schema are supported.
+import { isDeepStrictEqual } from 'node:util';
+import { ExactDecimal, normalizeHashInput } from '../canonical.js';
+export class BundleStructureError extends Error {
+  readonly code = 'invalid_bundle';
+}
+export function validBundleDateTime(value: string): boolean {
+  const p = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/i.exec(value);
+  if (!p) return false;
+  const [year, month, day, hour, minute, second, zoneHour, zoneMinute] = p.slice(1).map(v => Number(v ?? 0));
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return year >= 1 && month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1]
+    && hour <= 23 && minute <= 59 && second <= 60 && zoneHour <= 23 && zoneMinute <= 59;
+}
+export function validBundleURI(value: string): boolean {
+  if (/[^\x21-\x7e]|[<>"{}|\\^`]|%(?![0-9a-f]{2})/i.test(value)) return false;
+  try {
+    const parsed = new URL(value);
+    if (['http:', 'https:'].includes(parsed.protocol)) return Boolean(parsed.hostname) && (!parsed.port || Number(parsed.port) > 0);
+    return Boolean(parsed.pathname);
+  } catch { return false; }
+}
+export function validateBundleStructure(manifest: unknown): void {
+  function check(value: any, rule: any, location = '$'): void {
+    const fail = (reason: string): never => { throw new BundleStructureError(`${location}: ${reason}`); };
+    if (rule.$ref) {
+      const target = rule.$ref.split('/').slice(1).reduce((node: any, key: string) => node[key], bundleSchema);
+      if (!target) fail('unresolved schema reference');
+      check(value, target, location);
+    }
+    if ('const' in rule && !isDeepStrictEqual(value, rule.const)) fail('constant mismatch');
+    if (rule.enum && !rule.enum.some((entry: any) => isDeepStrictEqual(entry, value))) fail('invalid enum');
+    const matches = (sub: any) => { try { check(value, sub, location); return true; } catch { return false; } };
+    if (rule.anyOf && !rule.anyOf.some(matches)) fail('no matching shape');
+    if (rule.allOf) for (const sub of rule.allOf) check(value, sub, location);
+    if (rule.if) { const branch = matches(rule.if) ? rule.then : rule.else; if (branch) check(value, branch, location); }
+    const decimal = value instanceof ExactDecimal;
+    const numeric = decimal ? Number(value.value) : value;
+    const integral = decimal ? typeof normalizeHashInput(value) === 'number' : Number.isSafeInteger(value);
+    if (rule.type) {
+      const actual = value === null ? 'null' : Array.isArray(value) ? 'array' : decimal ? 'number' : typeof value;
+      const types = Array.isArray(rule.type) ? rule.type : [rule.type];
+      if (!types.some((t: string) => t === actual || t === 'integer' && integral)) fail('wrong type');
+    }
+    if ((typeof value === 'number' || decimal) && (!Number.isFinite(numeric) || rule.minimum !== undefined && numeric < rule.minimum)) fail('number outside bounds');
+    if (typeof value === 'string') {
+      const length = [...value].length;
+      if (rule.minLength !== undefined && length < rule.minLength || rule.maxLength !== undefined && length > rule.maxLength) fail('string length');
+      if (rule.pattern && !new RegExp(rule.pattern, 'u').test(value)) fail('pattern mismatch');
+      if (rule.format === 'uri' && !validBundleURI(value)) fail('invalid URI');
+      if (rule.format === 'date-time' && !validBundleDateTime(value)) fail('invalid date-time');
+    }
+    if (Array.isArray(value)) {
+      if (rule.minItems !== undefined && value.length < rule.minItems) fail('too few items');
+      if (rule.items) value.forEach((entry, i) => check(entry, rule.items, `${location}[${i}]`));
+    } else if (value && typeof value === 'object' && !decimal) {
+      for (const key of rule.required ?? []) if (!Object.hasOwn(value, key)) fail(`missing ${key}`);
+      for (const [key, entry] of Object.entries(value)) {
+        if (rule.propertyNames) check(key, rule.propertyNames, location);
+        if (Object.hasOwn(rule.properties ?? {}, key)) check(entry, rule.properties[key], `${location}.${key}`);
+        else if (rule.additionalProperties === false) fail(`unexpected ${key}`);
+      }
+    }
+  }
+  check(manifest, bundleSchema);
+}
