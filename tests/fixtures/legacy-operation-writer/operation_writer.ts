@@ -1,11 +1,10 @@
-import {existsSync,readFileSync} from 'node:fs';
-import {basename,join,resolve} from 'node:path';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
 import {VERSION} from '../version.js';
 import {canonicalHash} from '../canonical.js';
 import {inspectZip,sha256,DEFAULT_LIMITS,roleFor} from './archive.js';
 import {pinOutput, type PinnedDirectory} from './filesystem.js';
 import {validateManifest,validateBundle} from './validation.js';
-import {parsePageRanges} from '../providers/page_ranges.js';
 import type {Request,OutputUnavailable} from '../providers/types.js';
 interface Input {source:string;outputs:Array<{id:string;format:string;path:string;sha256:string;size:number}>;output:string;predecessor?:string|null;predecessorManifestSha256?:string|null;provider:{api:'v1'|'v4';endpoint:string;kind:string;id:string;binding:string;request:Request;terminal:string;missing:string[];unavailable?:OutputUnavailable[]};}
 function mediaFor(format:string){return format==='markdown'||format==='md'?{role:'markdown',media_type:'text/markdown'}:format==='json'||format==='content_list'?{role:'structured_json',media_type:'application/json'}:roleFor(format);}
@@ -15,15 +14,6 @@ function fail(code:string):never{throw Object.assign(new Error(code),{code});}
 /** Internal writer only: provenance comes from the persisted operation, never CLI assertions. */
 export async function createOperationBundle(input:Input){
  const source=readFileSync(input.source),sourceHash=sha256(source),p=input.provider;
- let requestedRanges:ReturnType<typeof parsePageRanges>=null,rangeAdmissionError:unknown;
- try{requestedRanges=parsePageRanges(p.request.pages);}
- catch(error){
-  // Historical writer requests had no interval/count bounds. Inspect only
-  // bounded textual identity for exact existing receipts; never admit that
-  // selector for a new bundle or manufacture normalized intent from it.
-  if((error as {code?:unknown}|null)?.code!=='invalid_page_ranges'||typeof p.request.pages!=='string'||p.request.pages.length>DEFAULT_LIMITS.max_manifest_bytes||Buffer.byteLength(p.request.pages,'utf8')>DEFAULT_LIMITS.max_manifest_bytes)throw error;
-  rangeAdmissionError=error;
- }
  if(sourceHash!==p.request.sha256||source.length!==p.request.size)fail('source_hash_mismatch');
  const unavailable=(p.unavailable??p.missing.map(value=>{const [format,reason]=value.split(':');return {role:'unknown',format,file_id:null,reason:['download_failed','expired','limit_exceeded','not_returned','unsupported_format','cancelled','unknown'].includes(reason)?reason:'unknown'};})).map(({role,format,file_id,reason})=>({role,format,file_id,reason}));
  // Verify inputs even when an already-published directory can be reused.
@@ -32,18 +22,10 @@ export async function createOperationBundle(input:Input){
  const expectedOutputs:any[]=outputs.map(o=>({artifact_id:`output-${o.index}`,kind:o.archive?'archive':'provider_file',sha256:o.sha256,size_bytes:o.size,file_id:o.id,role:o.archive?null:o.media.role,media_type:o.archive?'application/zip':o.media.media_type,...(o.archive?{}:{format_schema:null,format_version:null})}));
  const sourceRecord={sha256:sourceHash,size_bytes:source.length,media_type:'application/pdf',original_filename:null,page_count:null,file:{path:'source/source.pdf',sha256:sourceHash,size_bytes:source.length,media_type:'application/pdf'},absence_reason:null,origin:null};
  const ranges=()=>({ranges:[],basis:'unknown',evidence:[]});
- const legacyCoverage={status:'unknown',requested:{scope:'unknown',ranges:[]},completed:ranges(),missing:ranges(),unknown:{ranges:[],reason:'No validated PDF page coverage is established.'},source_complete:null};
- const coverage=requestedRanges?{...legacyCoverage,requested:{scope:'ranges',ranges:requestedRanges},unknown:{...legacyCoverage.unknown,ranges:requestedRanges}}:legacyCoverage;
+ const coverage={status:'unknown',requested:{scope:'unknown',ranges:[]},completed:ranges(),missing:ranges(),unknown:{ranges:[],reason:'No validated PDF page coverage is established.'},source_complete:null};
  const sourceMatches=(manifest:any)=>canonicalHash(manifest.source)===canonicalHash(sourceRecord);
- const identityInput={source:sourceHash,provider:{api:p.api,endpoint:p.endpoint,kind:p.kind,id:p.id,terminal:p.terminal},binding:p.binding,request:p.request,outputs:input.outputs.map(o=>[o.id,o.format,o.sha256]),unavailable};
- const legacyIdentity=canonicalHash(identityInput);
- // A changed coverage writer gets a new address. Previously published bundle
- // bytes and exact legacy replay retain their original address and receipt.
- const identity=requestedRanges?canonicalHash({...identityInput,coverage_profile:'normalized-requested-ranges.v1'}):legacyIdentity;
- if(rangeAdmissionError&&!existsSync(input.output))throw rangeAdmissionError;
- const root=pinOutput(input.output,!rangeAdmissionError),destinationName=`bundle-${identity}`,destination=join(root.path,destinationName);
- const candidates=requestedRanges?[{name:`bundle-${legacyIdentity}`,coverage:legacyCoverage},{name:destinationName,coverage}]:[{name:destinationName,coverage}];
- const predecessorPath=input.predecessor?resolve(input.predecessor):null;
+ const identity=canonicalHash({source:sourceHash,provider:{api:p.api,endpoint:p.endpoint,kind:p.kind,id:p.id,terminal:p.terminal},binding:p.binding,request:p.request,outputs:input.outputs.map(o=>[o.id,o.format,o.sha256]),unavailable});
+ const root=pinOutput(input.output),destinationName=`bundle-${identity}`,destination=join(root.path,destinationName);
  let stageName:string|undefined,stage:PinnedDirectory|undefined;
  try {
   // Inventory semantics are part of the intended output, not only its bytes.
@@ -52,40 +34,23 @@ export async function createOperationBundle(input:Input){
    expectedOutputs[output.index].members=(await inspectZip(bytes)).members;
   }
   let predecessorHash:string|null=null;
-  const exactPredecessor=candidates.find(candidate=>join(root.path,candidate.name)===predecessorPath);
-  if(exactPredecessor&&!root.exists(exactPredecessor.name))fail('retained_bundle_changed');
-  if(input.predecessor&&!exactPredecessor){
+  if(input.predecessor&&input.predecessor!==destination){
    const predecessor=pinOutput(input.predecessor,false);
-   try{
-    const prior=await validateBundle(predecessor.path),actualOutputs=outputIdentities(prior.manifest);
-    if(input.predecessorManifestSha256&&prior.manifest_sha256!==input.predecessorManifestSha256)fail('predecessor_manifest_changed');
-    if(!sourceMatches(prior.manifest)||canonicalHash(stableProvider(prior.manifest.provider))!==canonicalHash(stableProvider(provider))||prior.manifest.materializations.length||prior.manifest.legacy_receipts.length||actualOutputs.some((actual:any)=>!expectedOutputs.some(expected=>canonicalHash(actual)===canonicalHash(expected))))fail('predecessor_identity_mismatch');
-    const currentCoverage=canonicalHash(prior.manifest.coverage)===canonicalHash(coverage);
-    const priorIds=new Set(actualOutputs.map((output:any)=>output.artifact_id));
-    const priorLegacyIdentity=canonicalHash({...identityInput,provider:{...identityInput.provider,terminal:prior.manifest.provider.operation.terminal_state},outputs:input.outputs.filter((_output,index)=>priorIds.has(`output-${index}`)).map(output=>[output.id,output.format,output.sha256]),unavailable:prior.manifest.provider.outputs_unavailable});
-    const legacyPredecessor=requestedRanges&&canonicalHash(prior.manifest.coverage)===canonicalHash(legacyCoverage)&&basename(predecessor.path)===`bundle-${priorLegacyIdentity}`;
-    if(!currentCoverage&&!legacyPredecessor)fail('predecessor_identity_mismatch');
-    predecessor.assertUnchanged();predecessorHash=prior.manifest_sha256;
-   }
+   try{const prior=await validateBundle(predecessor.path);if(input.predecessorManifestSha256&&prior.manifest_sha256!==input.predecessorManifestSha256)fail('predecessor_manifest_changed');if(!sourceMatches(prior.manifest)||canonicalHash(stableProvider(prior.manifest.provider))!==canonicalHash(stableProvider(provider))||canonicalHash(prior.manifest.coverage)!==canonicalHash(coverage)||prior.manifest.materializations.length||prior.manifest.legacy_receipts.length||outputIdentities(prior.manifest).some((actual:any)=>!expectedOutputs.some(expected=>canonicalHash(actual)===canonicalHash(expected))))fail('predecessor_identity_mismatch');predecessor.assertUnchanged();predecessorHash=prior.manifest_sha256;}
    finally{predecessor.close();}
   }
-  const replays:Array<{bundle_dir:string;manifest_sha256:string}>=[];
-  // Every occupied candidate address is checked, even when another candidate
-  // is reusable. A conflicting legacy address must never be silently skipped.
-  for(const candidate of candidates)if(root.exists(candidate.name)){
-   const existing=root.openDirectory(candidate.name),candidatePath=join(root.path,candidate.name);
+  if(root.exists(destinationName)){
+   const existing=root.openDirectory(destinationName);
    try{
     const verified=await validateBundle(existing.path),manifest=verified.manifest;
     const actualOutputs=outputIdentities(manifest);
     const expected=[...expectedOutputs].sort((a,b)=>a.artifact_id.localeCompare(b.artifact_id));
-    if(!sourceMatches(manifest)||canonicalHash(manifest.provider)!==canonicalHash(provider)||canonicalHash(actualOutputs)!==canonicalHash(expected)||canonicalHash(manifest.coverage)!==canonicalHash(candidate.coverage)||manifest.materializations.length||manifest.legacy_receipts.length)fail('bundle_identity_mismatch');
-    if(predecessorPath===candidatePath){if(input.predecessorManifestSha256&&verified.manifest_sha256!==input.predecessorManifestSha256)fail('retained_bundle_changed');}
+    if(!sourceMatches(manifest)||canonicalHash(manifest.provider)!==canonicalHash(provider)||canonicalHash(actualOutputs)!==canonicalHash(expected)||canonicalHash(manifest.coverage)!==canonicalHash(coverage)||manifest.materializations.length||manifest.legacy_receipts.length)fail('bundle_identity_mismatch');
+    if(input.predecessor===destination){if(input.predecessorManifestSha256&&verified.manifest_sha256!==input.predecessorManifestSha256)fail('retained_bundle_changed');}
     else if(manifest.predecessor_manifest_sha256!==predecessorHash)fail('bundle_lineage_mismatch');
-    existing.assertUnchanged();root.assertUnchanged();replays.push({bundle_dir:candidatePath,manifest_sha256:verified.manifest_sha256});
+    existing.assertUnchanged();root.assertUnchanged();return{bundle_dir:destination,manifest_sha256:verified.manifest_sha256};
    }finally{existing.close();}
   }
-  if(replays.length)return replays.find(replay=>replay.bundle_dir===predecessorPath)??replays[0];
-  if(rangeAdmissionError)throw rangeAdmissionError;
   stageName=root.temporaryDirectory('.operation-bundle-');stage=root.openDirectory(stageName);
   const file=(path:string,bytes:Buffer,media_type:string)=>({path,sha256:sha256(bytes),size_bytes:bytes.length,media_type});
   stage.mkdir('source');stage.mkdir('archives');stage.mkdir('provider-files');stage.writeFile('source/source.pdf',source);

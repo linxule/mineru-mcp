@@ -1,0 +1,108 @@
+{
+  "page_map": {
+    "schema_version": "scholia.page-map.v1",
+    "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+    "extraction_id": "ext_mapper_fixture",
+    "adapter": {
+      "name": "mineru-content-list-flat",
+      "version": "2"
+    },
+    "blocks": [
+      {
+        "block_id": "blk_f2eb33493da75606aab7bafc5acbd57e",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "raw_json_pointer": "/0",
+        "source_page_index": 0,
+        "source_page_index_base": 0,
+        "page_number": 1,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      },
+      {
+        "block_id": "blk_c97296d31f1c5450b55db4e681296b1b",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "raw_json_pointer": "/1",
+        "source_page_index": 1,
+        "source_page_index_base": 0,
+        "page_number": 2,
+        "printed_page_label": null,
+        "slice": null,
+        "bbox": null
+      }
+    ]
+  },
+  "blocks": [
+    {
+      "ordinal": 0,
+      "block_id": "blk_f2eb33493da75606aab7bafc5acbd57e",
+      "text": "Synthetic prefix first page 😀",
+      "page_number": 1,
+      "section_path": null,
+      "block_type": "text",
+      "locator": "corpus://block/blk_f2eb33493da75606aab7bafc5acbd57e",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "2"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "3b34256e3183fa57974b79f28f72606076cb52e007cc66cb7e8317517c84ec1c",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "raw_json_pointer": "/0",
+        "source_page_index": 0,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    },
+    {
+      "ordinal": 1,
+      "block_id": "blk_c97296d31f1c5450b55db4e681296b1b",
+      "text": "Synthetic prefix second page",
+      "page_number": 2,
+      "section_path": null,
+      "block_type": "text",
+      "locator": "corpus://block/blk_c97296d31f1c5450b55db4e681296b1b",
+      "bbox": null,
+      "metadata": {
+        "page_provenance": "validated",
+        "adapter": {
+          "name": "mineru-content-list-flat",
+          "version": "2"
+        },
+        "source_document_sha256": "68ba0eb020da91812b92ec4d4acba97d0c34ab11047bfc42e4f1bcc707f3917c",
+        "extraction_id": "ext_mapper_fixture",
+        "artifact_sha256": "3b34256e3183fa57974b79f28f72606076cb52e007cc66cb7e8317517c84ec1c",
+        "artifact_id": "provider-json",
+        "member_id": null,
+        "raw_json_pointer": "/1",
+        "source_page_index": 1,
+        "source_page_index_base": 0,
+        "page_attribution": "provider_block_page"
+      }
+    }
+  ],
+  "format_schema": "mineru.content-list",
+  "format_version": "2.5.4-flat-prefix-v2",
+  "content_sha256": "3b34256e3183fa57974b79f28f72606076cb52e007cc66cb7e8317517c84ec1c",
+  "observed_pages": [
+    1,
+    2
+  ],
+  "coverage": {
+    "status": "unknown",
+    "source_complete": null,
+    "reason": "Content block page attribution does not prove extraction coverage."
+  },
+  "limitations": [
+    "Page attribution follows the pinned provider block page_idx; it does not verify OCR accuracy or semantic association.",
+    "Bounding boxes and printed page labels are unavailable without independently established geometry and rotation.",
+    "Observed block pages do not establish complete coverage or identify missing blank pages."
+  ]
+}

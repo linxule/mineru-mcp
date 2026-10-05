@@ -1,0 +1,12 @@
+[
+  {
+    "type": "text",
+    "text": "Synthetic prefix first page 😀",
+    "page_idx": 0
+  },
+  {
+    "type": "text",
+    "text": "Synthetic prefix second page",
+    "page_idx": 1
+  }
+]

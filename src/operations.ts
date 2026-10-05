@@ -11,6 +11,7 @@ import {createOperationBundle} from './bundle/operation_writer.js';
 import {Transport,ProviderError} from './providers/transport.js';
 import {V1Adapter} from './providers/v1.js';
 import {V4Adapter} from './providers/v4.js';
+import {parsePageRanges} from './providers/page_ranges.js';
 import type {Adapter,Api,Request,Capabilities,Snapshot,Output,OutputUnavailable,UnavailableReason} from './providers/types.js';
 export interface SubmitOptions {file?:string;url?:string;api?:Api;direct_url?:boolean;model?:string;tier?:string;pages?:string;output_dir:string;}
 type RetainedOutput={id:string;format:string;path:string;sha256:string;size:number};
@@ -87,8 +88,9 @@ export class Operations {
  async capabilities(api:Api='v4',refresh=false){const adapter=this.adapter(api);const cache=join(this.root,`capabilities-${canonicalHash({api,endpoint:adapter.endpoint})}.json`);if(!refresh&&existsSync(cache))return JSON.parse(readFileSync(cache,'utf8'));const value=await adapter.capabilities(refresh);if(refresh)writeFileSync(cache,JSON.stringify(value),{mode:0o600});return value;}
  async submit(options:SubmitOptions){return this.locked(async()=>{
   if(Boolean(options.file)===Boolean(options.url)||options.direct_url&&!options.url)throw new ProviderError('invalid_source');const api=options.api??'v4';if(api==='v1'&&!this.config.allowV1Execution&&!this.config.adapterFactory)throw new ProviderError('hosted_v1_not_validated');
-  const adapter=this.adapter(api);if(!this.config.adapterFactory&&!this.config.apiKey)throw new ProviderError('credentials_missing');if(api==='v1'&&(options.pages||options.model)||api==='v4'&&(options.tier||options.model&&!['pipeline','vlm'].includes(options.model)))throw new ProviderError('unsupported_capability');
-  if(options.pages&&!/^\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$/.test(options.pages))throw new ProviderError('invalid_page_ranges');
+  if(api==='v1'&&(options.pages||options.model)||api==='v4'&&(options.tier||options.model&&!['pipeline','vlm'].includes(options.model)))throw new ProviderError('unsupported_capability');
+  parsePageRanges(options.pages);
+  const adapter=this.adapter(api);if(!this.config.adapterFactory&&!this.config.apiKey)throw new ProviderError('credentials_missing');
   // Validate the destination before source acquisition, capability discovery,
   // or creation of an operation directory.
   const outputDir=safeOutput(options.output_dir);
@@ -131,7 +133,7 @@ export class Operations {
  }
  private failure(r:RecordData,error:unknown,mutation=false){const code=operationErrorCode(error);r.error=code;
   if(['identity_mismatch','input_identity_mismatch','upload_identity_mismatch','upload_source_mismatch'].includes(code)){r.state='reconciliation_required';}
-  else if(localIntegrityCodes.has(code)||['authentication_failed','credentials_missing','unsupported_capability','retained_source_changed'].includes(code)){r.state='needs_input';}
+  else if(localIntegrityCodes.has(code)||['authentication_failed','credentials_missing','unsupported_capability','retained_source_changed','invalid_page_ranges'].includes(code)){r.state='needs_input';if(code==='invalid_page_ranges')r.next_attempt_at=null;}
   else if(mutation){if(r.remote_id){r.phase='poll';r.state='waiting_external';}else if(r.upload_id&&['upload_transfer','upload_complete'].includes(r.phase)){r.state='waiting_external';}else{r.state='reconciliation_required';}}
   else{r.attempts++;r.state=r.attempts>=3?'needs_input':'retry_scheduled';const delay=error instanceof ProviderError&&error.retryAfter!==null?error.retryAfter:Math.min(60,5*2**(r.attempts-1));r.next_attempt_at=r.state==='needs_input'?null:this.now()+delay*1000;}
   r.events.push({phase:r.phase,at:new Date(this.now()).toISOString(),code});this.save(r);
@@ -149,11 +151,15 @@ export class Operations {
  }
  private async advance(operationId:string,pollOnly:boolean){return this.locked(async()=>{
   const r=this.read(operationId);if(r.cancelled||r.state==='failed_terminal'||r.state==='reconciliation_required'||r.state==='succeeded'&&!r.unavailable.length)return this.result(r);
-  if(r.next_attempt_at&&r.next_attempt_at>this.now())return this.result(r);const a=this.adapter(r.api,r.endpoint);
+  if(r.next_attempt_at&&r.next_attempt_at>this.now())return this.result(r);
   try{
    // The complete retained-output plan makes this recovery boundary offline,
    // including death after the last output save but before phase=finalize.
-   if(!pollOnly&&(r.phase==='finalize'||r.phase==='download'&&this.outputReady(r))&&r.state!=='needs_input'&&r.state!=='succeeded'){await this.finalize(r);return this.result(r);}
+   const legacyAdmissionRecovery=r.state==='needs_input'&&r.error==='invalid_page_ranges';
+   if(!pollOnly&&(r.phase==='finalize'||r.phase==='download'&&this.outputReady(r))&&(r.state!=='needs_input'||legacyAdmissionRecovery)&&r.state!=='succeeded'){await this.finalize(r);return this.result(r);}
+   // Exact local legacy receipt adoption above may retain a selector no longer
+   // admitted for new work. It never authorizes another provider action.
+   parsePageRanges(r.request.pages);const a=this.adapter(r.api,r.endpoint);
    if(!this.config.adapterFactory&&!this.config.apiKey)throw new ProviderError('credentials_missing');
    if(r.phase==='preflight'){if(pollOnly)return this.result(r);await this.start(r,a,r.request,r.source_sha256?readBytes(join(this.dir(operationId),'source.pdf')):null);return this.result(r);}
    if(!r.remote_id){

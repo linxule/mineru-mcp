@@ -1,6 +1,6 @@
 name: CI & publish
 
-# Verification (audit, build, runtime tests) runs on PRs to main and version tags.
+# Verification (audit, build, runtime tests) runs on main pushes, PRs and version tags.
 # On a version tag it ALSO publishes — to npm AND the MCP Registry — both via GitHub OIDC, so
 # there are NO secrets and nothing to expire:
 #   - npm: requires a Trusted Publisher configured for this repo + this workflow
@@ -22,6 +22,7 @@ on:
   pull_request:
     branches: [main]
   push:
+    branches: [main]
     tags: ["v*"]
 
 permissions:
@@ -39,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.registry_tag) || github.ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.registry_tag) || github.sha }}
 
       - name: Pin checkout identity
         id: source

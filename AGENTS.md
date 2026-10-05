@@ -17,8 +17,10 @@ Node 18.20.8 8/8, and publication-version guard fixtures 7/7. These are dated
 synthetic/offline checks, not a live provider pilot or parsing-accuracy claim.
 Local full-suite execution used macOS/Node 26; CI is configured for Node 24 on
 macOS/Linux and fresh-package checks on Node 18 on both platforms.
-Ordinary `main` pushes do not trigger this workflow; the pushed baseline does
-not imply a hosted CI pass.
+Ordinary `main` pushes now run verification only. Publishing still requires a
+version tag; manual dispatch remains registry recovery for an existing release
+tag and must not be used as a verification-only trigger. A pushed commit alone
+does not establish a hosted CI pass; inspect the run for that exact commit.
 
 Check `git status --short` before work; preserve unrelated edits and other agents'
 ownership. Keep work local unless the task authorizes more. Documentation, tests,
@@ -98,6 +100,21 @@ remote cancellation or automatic lost-ID association is implemented here.
   repack the retained ZIP, infer binding from filenames, or manufacture page
   offsets/coverage. Offline binding defaults to unknown; caller assertion stays
   qualified. Diagnostic inventories/quarantine are not importable bundles.
+- Durable V4 page requests retain their original text in the operation identity.
+  `src/providers/page_ranges.ts` validates bounded positive safe-integer
+  intervals before source/provider access. New operation bundles record only
+  normalized requested intent and unknown coverage; they do not derive page
+  offsets, completed/missing pages or source completeness. Ranged writer
+  addresses are versioned separately from legacy unknown-scope addresses.
+  Exact old replay preserves its bytes; legacy successors must match the old
+  writer's deterministic identity and any recorded manifest hash. Missing
+  recorded bundles and conflicting occupied addresses fail closed. The archived
+  writer fixture and `tests/operation-range-intent.test.mjs` exercise this
+  compatibility without network access.
+  Bounded historical selectors outside today's admission rules may reuse only
+  exact existing legacy receipts; they cannot publish new/enriched bundles or
+  reach a provider action. Offline finalization performs receipt adoption
+  before applying the new-request guard.
 - Local retention, bundles and durable operations require macOS/Linux and fail
   closed on Windows. Hold a pinned directory before awaits and use the contained
   helper through staging/publication. A final pathname check cannot replace that

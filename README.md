@@ -339,6 +339,24 @@ Remote cancellation and automatic lost-ID association remain unsupported.
 Completed bundles preserve archives and every detached output, including unknown
 formats. Provider transport completion does not establish full PDF page coverage.
 
+V4 durable `submit --pages 1-2,5` accepts positive pages and inclusive ranges.
+The request is limited to 16 KiB and 1,024 comma-separated intervals; zero,
+descending ranges and numbers outside the JavaScript safe-integer range fail
+before source acquisition or provider calls. The original text stays in the
+operation identity and provider options. New bundles record sorted, coalesced
+requested intervals, all with unknown coverage. This intent does not establish
+completed or missing pages, a page map, or full document coverage.
+
+Exact replay of an older ranged operation preserves its original bundle bytes,
+including its unknown requested scope. A verified later output recovery may
+publish a successor with normalized range intent and the original predecessor
+hash. New ranged bundles use a separate writer identity; conflicting occupied
+addresses and missing recorded bundles fail closed rather than rewriting an
+earlier receipt.
+Older selectors outside current admission bounds can only replay a verified
+existing legacy receipt. They cannot publish a new or enriched bundle or
+authorize a provider action.
+
 When one output remains unavailable after bounded download attempts, the operation
 publishes a partial bundle containing the verified successes and typed failure
 details. `bundle --operation-id ID` can return that retained evidence. An explicit

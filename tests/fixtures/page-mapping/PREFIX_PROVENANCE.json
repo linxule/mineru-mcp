@@ -1,0 +1,69 @@
+{
+  "profile": "2.5.4-flat-prefix-v2",
+  "adapter": {
+    "name": "mineru-content-list-flat",
+    "version": "2"
+  },
+  "upstream_commit": "61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99",
+  "retrieved_on": "2026-10-05",
+  "validation": "Source-grounded synthetic fixtures, exact local PDF metadata inspection; no live provider parse.",
+  "sources": [
+    {
+      "url": "https://github.com/opendatalab/MinerU/blob/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/cli/common.py",
+      "raw_url": "https://raw.githubusercontent.com/opendatalab/MinerU/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/cli/common.py",
+      "sha256": "1cd240eb056e7b593cb992659046fd6d325f98b45cd828de98f076a3b668b029",
+      "lines": [
+        46,
+        85
+      ],
+      "basis": "Selected pages are inserted into a NEW PDF before downstream parsing; non-prefix local indices cannot be treated as original-PDF positions."
+    },
+    {
+      "url": "https://github.com/opendatalab/MinerU/blob/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/backend/pipeline/model_json_to_middle_json.py",
+      "raw_url": "https://raw.githubusercontent.com/opendatalab/MinerU/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/backend/pipeline/model_json_to_middle_json.py",
+      "sha256": "8b42a6777d60475929d3e506b50212edbca24514019b6abb1bece96082f5970a",
+      "lines": [
+        176,
+        188
+      ],
+      "basis": "Pipeline enumerates pages of the resulting input PDF, including empty-page placeholders."
+    },
+    {
+      "url": "https://github.com/opendatalab/MinerU/blob/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/backend/vlm/model_output_to_middle_json.py",
+      "raw_url": "https://raw.githubusercontent.com/opendatalab/MinerU/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/mineru/backend/vlm/model_output_to_middle_json.py",
+      "sha256": "7b861cf7cfc2b61d9c8d53f26cf19e843e5ca6319c4e46b80f6a8a2ab3ffaaaa",
+      "lines": [
+        98,
+        108
+      ],
+      "basis": "VLM output page_idx is assigned from the resulting input-page enumeration."
+    },
+    {
+      "url": "https://github.com/opendatalab/MinerU/blob/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/docs/en/reference/output_files.md",
+      "raw_url": "https://raw.githubusercontent.com/opendatalab/MinerU/61cc6886fe3edda8aa1c5b8bd2b6eaedddb8af99/docs/en/reference/output_files.md",
+      "sha256": "6c52c6ef79ccc8827ee97df8aedd83dc1f4e9086f3919438c26a3e9bcf4adeb9",
+      "lines": [
+        350,
+        379
+      ],
+      "basis": "Flat content_list page_idx uses zero-based indexing."
+    }
+  ],
+  "hosted_documentation": {
+    "url": "https://mineru.net/doc/docs/index_en/",
+    "retrieved_at": "2026-10-05T16:18:54.276393+00:00",
+    "response_sha256": "fb6c5c7d070371438bde58eb61bd1fe042df478efe71ff7c380fa4e790a42873",
+    "response_size_bytes": 303712,
+    "media_type": "text/html",
+    "hash_basis": "Exact HTTP response body bytes, not rendered text; body was inspected but not retained in these synthetic fixtures.",
+    "basis": "Hosted page_ranges and per-file page_ranges are string selectors using 1-based inclusive positions. Hosted offset, ordering and overlap conventions are not guaranteed."
+  },
+  "local_policy": [
+    "Only V4 exact original-PDF byte bindings can opt in through retained top-level page_ranges or pages options and canonical requested coverage.",
+    "The pages option is an internal adapter alias, not a claimed hosted API parameter.",
+    "A single selector 1 or 1-N, normalized only for surrounding/interior ASCII JSON whitespace (space, tab, CR, LF), must exactly agree with one requested range starting at 1 and ending inside the independently inspected source.",
+    "Original-PDF and selected-prefix local zero-based indices coincide; neither suffix offsets nor comma-list reorder/overlap semantics are inferred.",
+    "Unknown, nested, alternate and falsy page selectors, physical slices, V1 contexts and indices beyond the prefix fail closed.",
+    "Observed block positions never establish complete, completed or missing page coverage. Full-document v1 fixture bytes and historical import profiles remain frozen."
+  ]
+}

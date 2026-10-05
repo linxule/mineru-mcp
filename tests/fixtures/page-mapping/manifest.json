@@ -2,6 +2,16 @@
   "fixture_version": "scholia.page-mapping-fixtures.v1",
   "files": [
     {
+      "path": "PREFIX_PROVENANCE.json",
+      "size_bytes": 4106,
+      "sha256": "96fba1a84c631ee863e10a6e377307d3c4178e0a004f7e906b1507ccd2ef51f9"
+    },
+    {
+      "path": "PREFIX_README.md",
+      "size_bytes": 1785,
+      "sha256": "cf02bc96b423d537a2f07c2ee97fa49f72620774965e194c467c1a71e91a547a"
+    },
+    {
       "path": "PROVENANCE.json",
       "size_bytes": 1747,
       "sha256": "1ac448e823118d67419e1ddd593db6889d4c80d89c50cf6a0357d5f0ed0e5e65"
@@ -95,6 +105,61 @@
       "path": "physical-slice.json",
       "size_bytes": 712,
       "sha256": "23570b59fdf5b642070224c1fddea8aa5744bc6805cdde10c1fb8ccf4e1e4ad6"
+    },
+    {
+      "path": "prefix-agreeing-aliases.expected.json",
+      "size_bytes": 3669,
+      "sha256": "ecf4b1e9e7dd72a49cb40e0cb19e845c0b179b7010e87e1750f29e07f059bb5e"
+    },
+    {
+      "path": "prefix-ascii-json-whitespace.expected.json",
+      "size_bytes": 3669,
+      "sha256": "ecf4b1e9e7dd72a49cb40e0cb19e845c0b179b7010e87e1750f29e07f059bb5e"
+    },
+    {
+      "path": "prefix-cases.json",
+      "size_bytes": 57105,
+      "sha256": "9bdb39864886a165fd85d849275cd9959ae2fec34075fa5588f438941bd6b40b"
+    },
+    {
+      "path": "prefix-entire-source.expected.json",
+      "size_bytes": 3669,
+      "sha256": "ecf4b1e9e7dd72a49cb40e0cb19e845c0b179b7010e87e1750f29e07f059bb5e"
+    },
+    {
+      "path": "prefix-one-page.expected.json",
+      "size_bytes": 2357,
+      "sha256": "5e0f018f40de0c96a28abfad3d3f8ecaa2e4b21448ed6482748499112ac3a279"
+    },
+    {
+      "path": "prefix-one-page.json",
+      "size_bytes": 90,
+      "sha256": "6608f626e23a0d3f9c7dda311d8466fdb732f58b55c6faa01971ba8e2c0edef7"
+    },
+    {
+      "path": "prefix-outside.json",
+      "size_bytes": 90,
+      "sha256": "25750e7c3d2eef48c8a1b5dec0d7627196b14c44a73d5463756893966ceea48a"
+    },
+    {
+      "path": "prefix-page-ranges.expected.json",
+      "size_bytes": 3669,
+      "sha256": "ecf4b1e9e7dd72a49cb40e0cb19e845c0b179b7010e87e1750f29e07f059bb5e"
+    },
+    {
+      "path": "prefix-pages-alias.expected.json",
+      "size_bytes": 3669,
+      "sha256": "ecf4b1e9e7dd72a49cb40e0cb19e845c0b179b7010e87e1750f29e07f059bb5e"
+    },
+    {
+      "path": "prefix-positive.json",
+      "size_bytes": 189,
+      "sha256": "3b34256e3183fa57974b79f28f72606076cb52e007cc66cb7e8317517c84ec1c"
+    },
+    {
+      "path": "prefix-provider-checksum.expected.json",
+      "size_bytes": 3669,
+      "sha256": "ecf4b1e9e7dd72a49cb40e0cb19e845c0b179b7010e87e1750f29e07f059bb5e"
     },
     {
       "path": "range-no-offset.json",
