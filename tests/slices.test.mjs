@@ -5,8 +5,7 @@ import axios from 'axios';
 import {Readable} from 'node:stream';
 import {mkdtempSync,mkdirSync,renameSync,symlinkSync,readdirSync,rmSync,readFileSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
-import {Client} from '@modelcontextprotocol/sdk/client/index.js';
-import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
+import {Client,InMemoryTransport} from '@modelcontextprotocol/client';
 import createServer from '../dist/index.js';
 import {zip} from './zip-fixture.mjs';
 async function setup(t) {

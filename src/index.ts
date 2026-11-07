@@ -6,8 +6,8 @@ import { sha256 } from "./bundle/archive.js";
 import { lifecycle, normalizeState } from "./bundle/lifecycle.js";
 import { fetchArchive, retainArchive } from "./bundle/download.js";
 import { VERSION } from "./version.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { z } from "zod";
 import axios, { AxiosError } from "axios";
 import { readFileSync, createWriteStream, readdirSync, statSync, mkdirSync, existsSync, unlinkSync, rmSync, realpathSync, copyFileSync } from "node:fs";
@@ -260,18 +260,17 @@ export default function createServer({ config }: { config: Config }) {
       return{...result,structuredContent:executionResult({...value,status},operation)};
     }catch(error){let message=error instanceof Error?error.message:String(error),code=error instanceof ProviderError?error.code:'legacy_operation_failed';try{legacyGuard.rejectCredentialEcho(message);}catch{code='credential_echo_forbidden';message=code;}const structuredContent=executionResult({status:'error',state:'failed',error:{code,message,...(error instanceof ProviderError&&error.uncertain?{suggestion:'Inspect the provider outcome before retrying a possibly accepted request.'}:{})}},operation);return{isError:true,structuredContent,content:[{type:'text' as const,text:message}]};}
   };
-  server.tool('mineru_capabilities','Read locally known adapter capabilities; refresh explicitly performs discovery.',{api:z.enum(['v4','v1']).optional().default('v4'),refresh:z.boolean().optional().default(false)},p=>execution('capabilities',()=>operations().capabilities(p.api,p.refresh)));
-  server.tool('mineru_submit','Submit once with a durable local journal. A lost remote ID requires reconciliation; it is never automatically resubmitted.',{file:z.string().optional(),url:z.string().optional(),api:z.enum(['v4','v1']).optional().default('v4'),direct_url:z.boolean().optional().default(false),model:z.string().optional(),tier:z.string().optional(),pages:z.string().optional(),output_dir:z.string()},p=>execution('submit',()=>operations().submit(p)));
-  server.tool('mineru_operation_status','Read a durable operation snapshot; refresh performs one safe remote status request.',{operation_id:z.string(),refresh:z.boolean().optional().default(false)},p=>execution('operation_status',()=>operations().status(p.operation_id,p.refresh)));
-  server.tool('mineru_resume','Continue safe recorded checkpoints without starting a second parse.',{operation_id:z.string()},p=>execution('resume',()=>operations().resume(p.operation_id)));
-  server.tool('mineru_cancel','Stop local processing. Remote cancellation is unsupported unless verified.',{operation_id:z.string(),remote:z.boolean().optional().default(false)},p=>execution('cancel',()=>operations().cancel(p.operation_id,p.remote)));
-  server.tool('mineru_bundle','Validate a completed local operation bundle without downloading or parsing.',{operation_id:z.string()},p=>execution('bundle',()=>operations().bundle(p.operation_id)));
+  server.registerTool('mineru_capabilities', { description: 'Read locally known adapter capabilities; refresh explicitly performs discovery.', inputSchema: z.object({api:z.enum(['v4','v1']).optional().default('v4'),refresh:z.boolean().optional().default(false)}) }, p=>execution('capabilities',()=>operations().capabilities(p.api,p.refresh)));
+  server.registerTool('mineru_submit', { description: 'Submit once with a durable local journal. A lost remote ID requires reconciliation; it is never automatically resubmitted.', inputSchema: z.object({file:z.string().optional(),url:z.string().optional(),api:z.enum(['v4','v1']).optional().default('v4'),direct_url:z.boolean().optional().default(false),model:z.string().optional(),tier:z.string().optional(),pages:z.string().optional(),output_dir:z.string()}) }, p=>execution('submit',()=>operations().submit(p)));
+  server.registerTool('mineru_operation_status', { description: 'Read a durable operation snapshot; refresh performs one safe remote status request.', inputSchema: z.object({operation_id:z.string(),refresh:z.boolean().optional().default(false)}) }, p=>execution('operation_status',()=>operations().status(p.operation_id,p.refresh)));
+  server.registerTool('mineru_resume', { description: 'Continue safe recorded checkpoints without starting a second parse.', inputSchema: z.object({operation_id:z.string()}) }, p=>execution('resume',()=>operations().resume(p.operation_id)));
+  server.registerTool('mineru_cancel', { description: 'Stop local processing. Remote cancellation is unsupported unless verified.', inputSchema: z.object({operation_id:z.string(),remote:z.boolean().optional().default(false)}) }, p=>execution('cancel',()=>operations().cancel(p.operation_id,p.remote)));
+  server.registerTool('mineru_bundle', { description: 'Validate a completed local operation bundle without downloading or parsing.', inputSchema: z.object({operation_id:z.string()}) }, p=>execution('bundle',()=>operations().bundle(p.operation_id)));
 
   // Tool 1: mineru_parse
-  server.tool(
+  server.registerTool(
     "mineru_parse",
-    "Parse a document URL. Returns task_id to check status.",
-    {
+    { description: "Parse a document URL. Returns task_id to check status.", inputSchema: z.object({
       url: z.string().describe("Document URL (PDF, DOC, PPT, images)"),
       model: z
         .enum(["pipeline", "vlm"])
@@ -286,7 +285,7 @@ export default function createServer({ config }: { config: Config }) {
         .array(z.enum(["docx", "html", "latex"]))
         .optional()
         .describe("Extra export formats"),
-    },
+    }) },
     async (params) => legacyExecution('parse', async () => {
       const requestData: Record<string, unknown> = {
         url: params.url,
@@ -315,17 +314,16 @@ export default function createServer({ config }: { config: Config }) {
   );
 
   // Tool 2: mineru_status
-  server.tool(
+  server.registerTool(
     "mineru_status",
-    "Check task progress. Returns download URL when done.",
-    {
+    { description: "Check task progress. Returns download URL when done.", inputSchema: z.object({
       task_id: z.string().describe("Task ID from mineru_parse"),
       format: z
         .enum(["concise", "detailed"])
         .optional()
         .default("concise")
         .describe("Output format"),
-    },
+    }) },
     async (params) => legacyExecution('status', async () => {
       const status = await mineruRequest<TaskStatus>(`/extract/task/${params.task_id}`);
 
@@ -342,10 +340,9 @@ export default function createServer({ config }: { config: Config }) {
   );
 
   // Tool 3: mineru_batch
-  server.tool(
+  server.registerTool(
     "mineru_batch",
-    "Parse multiple public URLs in one batch. The local guard allows up to 200 URLs. Returns batch_id for status checks.",
-    {
+    { description: "Parse multiple public URLs in one batch. The local guard allows up to 200 URLs. Returns batch_id for status checks.", inputSchema: z.object({
       urls: z.union([z.array(z.string()), z.string()]).describe("Array of document URLs, or a single URL string"),
       model: z
         .enum(["pipeline", "vlm"])
@@ -359,7 +356,7 @@ export default function createServer({ config }: { config: Config }) {
         .array(z.enum(["docx", "html", "latex"]))
         .optional()
         .describe("Extra export formats"),
-    },
+    }) },
     async (params) => legacyExecution('batch', async () => {
       // Normalize urls: accept string (JSON array or single URL) or array
       let urls: string[];
@@ -404,10 +401,9 @@ export default function createServer({ config }: { config: Config }) {
   );
 
   // Tool 4: mineru_batch_status
-  server.tool(
+  server.registerTool(
     "mineru_batch_status",
-    "Get batch results. Supports pagination for large batches.",
-    {
+    { description: "Get batch results. Supports pagination for large batches.", inputSchema: z.object({
       batch_id: z.string().describe("Batch ID from mineru_batch"),
       limit: z.number().optional().default(10).describe("Max results to return"),
       offset: z.number().optional().default(0).describe("Skip first N results"),
@@ -416,7 +412,7 @@ export default function createServer({ config }: { config: Config }) {
         .optional()
         .default("concise")
         .describe("Output format"),
-    },
+    }) },
     async (params) => legacyExecution('batch_status', async () => {
       const batch = await mineruRequest<BatchStatus>(
         `/extract-results/batch/${params.batch_id}`
@@ -435,10 +431,9 @@ export default function createServer({ config }: { config: Config }) {
   );
 
   // Tool 5: mineru_upload_batch
-  server.tool(
+  server.registerTool(
     "mineru_upload_batch",
-    "Upload local files for batch parsing. Returns batch_id for status checks.",
-    {
+    { description: "Upload local files for batch parsing. Returns batch_id for status checks.", inputSchema: z.object({
       directory: z.string().optional().describe("Directory path containing PDF/DOC/PPT files"),
       files: z.union([z.array(z.string()), z.string()]).optional().describe("Array of absolute file paths, or a single path string"),
       model: z
@@ -452,7 +447,7 @@ export default function createServer({ config }: { config: Config }) {
         .array(z.enum(["docx", "html", "latex"]))
         .optional()
         .describe("Extra export formats"),
-    },
+    }) },
     async (params) => legacyExecution('upload_batch', async () => {
       const supportedExts = new Set([".pdf", ".doc", ".docx", ".ppt", ".pptx", ".png", ".jpg", ".jpeg"]);
 
@@ -579,14 +574,13 @@ export default function createServer({ config }: { config: Config }) {
   );
 
   // Tool 6: mineru_download_results
-  server.tool(
+  server.registerTool(
     "mineru_download_results",
-    "Download batch results and extract named paper folders. Each folder contains {name}.md, {name}_content.json (structured TOC), and images/. Output includes parsed title — verify it matches the expected paper.",
-    {
+    { description: "Download batch results and extract named paper folders. Each folder contains {name}.md, {name}_content.json (structured TOC), and images/. Output includes parsed title — verify it matches the expected paper.", inputSchema: z.object({
       batch_id: z.string().describe("Batch ID from mineru_upload_batch or mineru_batch"),
       output_dir: z.string().describe("Directory to save markdown files"),
       overwrite: z.boolean().optional().default(false).describe("Overwrite existing files"),
-    },
+    }) },
     async (params) => legacyExecution('download_results', async () => {
       const batch = await mineruRequest<BatchStatus>(`/extract-results/batch/${params.batch_id}`);
       const state = lifecycle(params.batch_id, batch.extract_result);
@@ -615,10 +609,9 @@ export default function createServer({ config }: { config: Config }) {
   );
 
   // Tool 7: mineru_parse_long — bounded page-range slices in one batch
-  server.tool(
+  server.registerTool(
     "mineru_parse_long",
-    "Submit a document as one batch of page-range slices, with a local limit of 200 pages per requested slice. Give total_pages (from `mdls -name kMDItemNumberOfPages`, `pdfinfo`, or the viewer) — it is auto-detected only for local files on macOS. Returns a batch_id; poll with mineru_batch_status, then stitch with mineru_merge_slices.",
-    {
+    { description: "Submit a document as one batch of page-range slices, with a local limit of 200 pages per requested slice. Give total_pages (from `mdls -name kMDItemNumberOfPages`, `pdfinfo`, or the viewer) — it is auto-detected only for local files on macOS. Returns a batch_id; poll with mineru_batch_status, then stitch with mineru_merge_slices.", inputSchema: z.object({
       url: z.string().optional().describe("Public document URL (preferred)"),
       file: z.string().optional().describe("Absolute local file path (uploaded once per slice)"),
       total_pages: z.number().int().positive().optional().describe("Total page count of the document"),
@@ -629,7 +622,7 @@ export default function createServer({ config }: { config: Config }) {
       formula: z.boolean().optional().describe("Formula recognition"),
       table: z.boolean().optional().describe("Table recognition"),
       language: z.string().optional().describe("Language code: ch, en, etc"),
-    },
+    }) },
     async (params) => legacyExecution('parse_long', async () => {
       if (!params.url === !params.file) throw new Error("Provide exactly one of 'url' or 'file'.");
 
@@ -698,14 +691,13 @@ export default function createServer({ config }: { config: Config }) {
   );
 
   // Tool 8: mineru_merge_slices — stitch a sliced batch back into one document
-  server.tool(
+  server.registerTool(
     "mineru_merge_slices",
-    "Stitch the slices of a mineru_parse_long batch into one {name}/{name}.md (+ {name}_content.json with per-slice references and unknown page provenance). Slices are ordered by their page range; each is marked with an HTML comment. Waits for nothing — if any slice is still processing, it reports and you re-run later.",
-    {
+    { description: "Stitch the slices of a mineru_parse_long batch into one {name}/{name}.md (+ {name}_content.json with per-slice references and unknown page provenance). Slices are ordered by their page range; each is marked with an HTML comment. Waits for nothing — if any slice is still processing, it reports and you re-run later.", inputSchema: z.object({
       batch_id: z.string().describe("Batch ID from mineru_parse_long"),
       output_dir: z.string().describe("Directory to write the merged document folder into"),
       overwrite: z.boolean().optional().default(false).describe("Overwrite an existing merged folder"),
-    },
+    }) },
     async (params) => legacyExecution('merge_slices', async () => {
       const batch = await mineruRequest<BatchStatus>(`/extract-results/batch/${params.batch_id}`);
       const slices = batch.extract_result

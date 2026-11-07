@@ -2,8 +2,7 @@
 // mineru-cloud: the same tools as the MCP server, driven from a shell.
 // It runs the MCP server in-process over an in-memory transport and calls its
 // tools, so the CLI and the server can never drift apart.
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createBundle } from "./bundle/manifest.js";
 import createServer from "./index.js";
 import {executionResult,structuredError} from "./operations.js";
