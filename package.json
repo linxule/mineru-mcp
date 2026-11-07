@@ -1,6 +1,6 @@
 {
   "name": "mineru-mcp",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "MinerU MCP server and mineru-cloud CLI with complete artifact retention, durable operations, and portable PDF bundles",
   "type": "module",
   "main": "dist/index.js",
