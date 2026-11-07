@@ -8,16 +8,16 @@ actual tool schemas before changing behavior. `CLAUDE.md` points here.
 
 As of 2026-09-30, pushed `main` is `49e88ca` (portable verification/release gates),
 including `9d3c95e` (provider boundaries, durable recovery, artifact containment).
-Package/server versions remain 1.2.0. The published npm 1.2.0 predates the new
-durable-operation and bundle features; a clean checkout or passing package test
-does not make those features available from npm.
+Package/server versions are 2.0.0 (2026-11-07): the first npm release carrying
+the durable-operation and bundle features, on MCP SDK v2 with a Node >=20 floor.
+Check `npm view mineru-mcp version` rather than assuming a later checkout is
+published.
 
-Last verification: build passed, full suite 323/323, fresh consumer package on
-Node 18.20.8 8/8, and publication-version guard fixtures 7/7. These are dated
-synthetic/offline checks, not a live provider pilot or parsing-accuracy claim.
-Local full-suite execution used macOS/Node 26; CI is configured for Node 24 on
-macOS/Linux and fresh-package checks on Node 18 on both platforms (since raised
-to Node 20 by the MCP SDK v2 migration; see the runtime section).
+Last verification (2026-11-07, PR #14): build passed; full suite 426/426 locally
+(macOS/Node 26) and 424 pass + 2 `pdfinfo`-unavailable skips on CI macOS/Linux
+(Node 24); fresh consumer package 8/8 on Node 20.20.2 locally and on both CI
+platforms. These are synthetic/offline checks, not a live provider pilot or
+parsing-accuracy claim.
 Ordinary `main` pushes now run verification only. Publishing still requires a
 version tag; manual dispatch remains registry recovery for an existing release
 tag and must not be used as a verification-only trigger. A pushed commit alone

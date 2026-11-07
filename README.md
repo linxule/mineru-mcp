@@ -4,9 +4,8 @@ MCP server and `mineru-cloud` CLI for the [MinerU](https://mineru.net) document
 parsing API, with complete artifact retention, durable operations, and portable
 PDF bundles.
 
-Durable operations and bundles in this checkout are unreleased. The published
-`mineru-mcp@1.2.0` does not include them; npm users need a release containing these
-changes.
+Version 2.0.0 is the first npm release with durable operations and portable
+bundles. It requires Node.js 20 or newer; stay on `mineru-mcp@1` for Node.js 18.
 
 ## Features
 
@@ -507,14 +506,25 @@ current limits, quota, queue priority, or supported plan. Check those separately
 when a cloud task is authorized. This checkout's synthetic tests do not measure
 hosted parsing accuracy, speed, or language coverage.
 
-## Unreleased
+## Release 2.0.0
 
-Moves from the v1 MCP TypeScript SDK (`@modelcontextprotocol/sdk` 1.29) to the
-v2 packages `@modelcontextprotocol/server`, `@modelcontextprotocol/client` and
-`@modelcontextprotocol/node`, and raises the minimum runtime to Node.js 20
-(Node.js 18 is end-of-life and v2 requires 20). Tool names, inputs, results and
-both transports are unchanged. Advertised tool input schemas now declare JSON
-Schema 2020-12 instead of draft-07 and no longer carry `execution.taskSupport`.
+**Breaking:** the minimum runtime is now Node.js 20 (Node.js 18 is end-of-life).
+Node.js 18 users should pin `mineru-mcp@1`.
+
+- Moves from the v1 MCP TypeScript SDK (`@modelcontextprotocol/sdk` 1.29) to the
+  v2 packages `@modelcontextprotocol/server`, `@modelcontextprotocol/client` and
+  `@modelcontextprotocol/node`. Tool names and inputs and both transports are
+  unchanged. Advertised tool input schemas now declare JSON Schema 2020-12
+  instead of draft-07 and no longer carry `execution.taskSupport`. Input
+  validation errors no longer start with `MCP error -32602:`.
+- First npm release of the work merged since 1.2.0: durable operations
+  (`mineru_capabilities`, `mineru_submit`, `mineru_operation_status`,
+  `mineru_resume`, `mineru_cancel`, `mineru_bundle`) with a local journal and
+  checkpoint recovery, complete archive retention and portable PDF bundles,
+  structured lifecycle results on the legacy tools, and offline
+  `mineru-cloud bundle`.
+- Dependency refresh: `bun audit` reports no known vulnerabilities in the locked
+  tree at release time.
 
 ## Release 1.1.6
 
