@@ -5,9 +5,8 @@ import { once } from 'node:events';
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 const packageVersion = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 
 // Exercise the built entry points against a local MinerU API double. No real
 // credential, document upload, or provider request is needed for these tests.

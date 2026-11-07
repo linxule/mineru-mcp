@@ -41,7 +41,7 @@ changes.
 
 ## Installation
 
-Use [Node.js](https://nodejs.org/) 24 for new installations. Node.js 18+ remains
+Use [Node.js](https://nodejs.org/) 24 for new installations. Node.js 20+ remains
 supported for compatibility. Cloud commands require a [MinerU API key](https://mineru.net);
 offline bundle creation requires no credentials.
 
@@ -507,6 +507,15 @@ current limits, quota, queue priority, or supported plan. Check those separately
 when a cloud task is authorized. This checkout's synthetic tests do not measure
 hosted parsing accuracy, speed, or language coverage.
 
+## Unreleased
+
+Moves from the v1 MCP TypeScript SDK (`@modelcontextprotocol/sdk` 1.29) to the
+v2 packages `@modelcontextprotocol/server`, `@modelcontextprotocol/client` and
+`@modelcontextprotocol/node`, and raises the minimum runtime to Node.js 20
+(Node.js 18 is end-of-life and v2 requires 20). Tool names, inputs, results and
+both transports are unchanged. Advertised tool input schemas now declare JSON
+Schema 2020-12 instead of draft-07 and no longer carry `execution.taskSupport`.
+
 ## Release 1.1.6
 
 Restores Node.js 18 HTTP compatibility for fresh installs by retaining MCP SDK
@@ -548,8 +557,9 @@ Linux. These checks do not establish live-provider parsing accuracy.
 On PRs to `main`, version-tag pushes and manual registry recovery, CI audits
 dependencies, builds, and runs the full suite on both macOS and Linux
 with Node.js 24. Each platform also installs a fresh packed package without the
-repository lock and tests it on Node.js 18. This consumer-install gate preserves
-the Node 18 compatibility target. Dependabot updates the Bun manifest and lockfile
+repository lock and tests it on Node.js 20. This consumer-install gate preserves
+the Node 20 minimum: it fails if any resolved dependency requires a newer Node.js
+major or if the v1 MCP SDK returns transitively. Dependabot updates the Bun manifest and lockfile
 together. Ordinary pushes to `main` do not trigger this workflow.
 
 ### Publishing

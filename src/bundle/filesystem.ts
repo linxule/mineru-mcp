@@ -1,5 +1,5 @@
 /**
- * Contained writes on Node 18 without a native openat binding.
+ * Contained writes without a native openat binding (Node.js provides none).
  *
  * Each worker inherits the pinned directory descriptor and starts with that
  * directory as its cwd. It checks cwd against the descriptor before mutation.

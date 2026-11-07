@@ -16,7 +16,8 @@ Last verification: build passed, full suite 323/323, fresh consumer package on
 Node 18.20.8 8/8, and publication-version guard fixtures 7/7. These are dated
 synthetic/offline checks, not a live provider pilot or parsing-accuracy claim.
 Local full-suite execution used macOS/Node 26; CI is configured for Node 24 on
-macOS/Linux and fresh-package checks on Node 18 on both platforms.
+macOS/Linux and fresh-package checks on Node 18 on both platforms (since raised
+to Node 20 by the MCP SDK v2 migration; see the runtime section).
 Ordinary `main` pushes now run verification only. Publishing still requires a
 version tag; manual dispatch remains registry recovery for an existing release
 tag and must not be used as a verification-only trigger. A pushed commit alone
@@ -30,10 +31,12 @@ request is not permission to submit again.
 
 ## Runtime and code map
 
-Use Bun 1.4.2 for dependency/build commands. Recommend Node 24; retain Node >=18
+Use Bun 1.4.2 for dependency/build commands. Recommend Node 24; retain Node >=20
 runtime compatibility. `bun.lock` owns locked dependency resolution. `dist/` is
-generated and ignored; rebuild before running tests or the CLI. Keep the MCP SDK
-1.29.x compatibility bound until the fresh Node 18 consumer gate proves a change.
+generated and ignored; rebuild before running tests or the CLI. The MCP SDK is the
+v2 split (`@modelcontextprotocol/server`, `/client`, `/node`); the v1
+`@modelcontextprotocol/sdk` must not return, directly or transitively. Raise the
+Node floor only together with `engines` and the fresh-consumer gate.
 
 | Area | Responsibility |
 | --- | --- |
@@ -134,7 +137,9 @@ bun run test:package
 
 The package test installs the packed manifest without the repo lock and checks
 both transports, packaged filesystem helper, and operation bundle identity.
-Select Node 18 in PATH for the minimum-runtime gate (`process.execPath` is used).
+Select Node 20 in PATH for the minimum-runtime gate (`process.execPath` is used).
+The gate also fails if a resolved dependency's `engines.node` needs a newer major
+than our own `engines` floor, or if `@modelcontextprotocol/sdk` is installed.
 Use injected/local providers and synthetic bytes. New temp fixtures must use
 `tests/temp-dir.mjs` or `realpathSync(tmpdir())`, not a hardcoded `/private/tmp` or
 an unresolved symlink alias. Run focused realistic regressions then the relevant

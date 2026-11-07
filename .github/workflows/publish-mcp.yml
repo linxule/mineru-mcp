@@ -81,9 +81,9 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: "18"
+          node-version: "20"
 
-      - name: Verify fresh package install on Node 18
+      - name: Verify fresh package install on Node 20 (minimum supported)
         run: bun run test:package
 
   # Keep the existing required-check name; failed/cancelled matrix jobs must
